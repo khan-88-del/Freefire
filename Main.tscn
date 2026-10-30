@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=3 uid="uid://main_bermuda_world"]
+
+[ext_resource type="Script" path="res://Main.gd" id="1_main"]
+[ext_resource type="PackedScene" path="res://Bermuda_Mesh.glb" id="2_map"]
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 100, 0)
+light_energy = 1.2
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 50, 80)
+current = true
+
+[node name="BermudaWorld" parent="." instance=ExtResource("2_map")]
