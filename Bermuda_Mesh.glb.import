@@ -1,0 +1,27 @@
+[remap]
+
+importer="scene"
+importer_version=1
+type="PackedScene"
+uid="uid://bermuda_mesh_clean"
+valid=true
+
+[deps]
+
+source_file="res://Bermuda_Mesh.glb"
+dest_files=["res://.godot/imported/Bermuda_Mesh.glb-clean.scn"]
+
+[params]
+
+nodes/root_type="Node3D"
+nodes/root_name="Scene Root"
+nodes/apply_root_scale=true
+nodes/root_scale=1.0
+meshes/ensure_tangents=false
+meshes/generate_lods=false
+meshes/create_shadow_meshes=false
+meshes/light_baking=0
+skins/use_named_skins=true
+animation/import=false
+import_script/path=""
+_subresources={}
