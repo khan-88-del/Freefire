@@ -1,25 +1,6 @@
-[ext_resource type="PackedScene" path="res://Player.tscn" id="Ext_Player"]
-[ext_resource type="Script" path="res://Joystick.gd" id="Ext_Joystick"]
-[gd_scene load_steps=3 format=3 uid="uid://main_bermuda_world"]
+[gd_scene load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://Main.gd" id="1_main"]
-[ext_resource type="PackedScene" path="res://Bermuda_Mesh.glb" id="2_map"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
-
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 100, 0)
-light_energy = 1.5
-
-[node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.906308, 0.422618, 0, -0.422618, 0.906308, 0, 35, 50)
-current = true
-
-[node name="BermudaWorld" parent="." instance=ExtResource("2_map")]
-
-[node name="UI" type="CanvasLayer" parent="."]
-script = ExtResource("Ext_Joystick")
-
-[node name="Player" parent="." instance=ExtResource("Ext_Player")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25.0, 0)
