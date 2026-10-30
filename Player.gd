@@ -6,6 +6,7 @@ var input_dir: Vector2 = Vector2.ZERO
 
 var spring_arm: SpringArm3D
 var model_node: Node3D
+var anim_player: AnimationPlayer
 
 func _ready():
 	var ui = get_node_or_null("../UI")
@@ -27,10 +28,26 @@ func _ready():
 	model_node = Node3D.new()
 	add_child(model_node)
 
-	if ResourceLoader.exists("res://assets/player/ns_twins_3d_model.glb"):
-		var m = load("res://assets/player/ns_twins_3d_model.glb").instantiate()
-		m.rotation.y = deg_to_rad(180)
-		model_node.add_child(m)
+	# Walk_F wale mesh ko directly load karte hain jisme animation pehle se baked hai
+	var anim_mesh_path = "res://assets/anims/Walk_F.glb"
+	if ResourceLoader.exists(anim_mesh_path):
+		var char_inst = load(anim_mesh_path).instantiate()
+		char_inst.rotation.y = deg_to_rad(180)
+		model_node.add_child(char_inst)
+		anim_player = _find_anim_player(char_inst)
+		if anim_player:
+			var anims = anim_player.get_animation_list()
+			if anims.size() > 0:
+				var a = anim_player.get_animation(anims[0])
+				a.loop_mode = Animation.LOOP_LINEAR
+				anim_player.play(anims[0])
+
+func _find_anim_player(n: Node) -> AnimationPlayer:
+	if n is AnimationPlayer: return n
+	for c in n.get_children():
+		var res = _find_anim_player(c)
+		if res: return res
+	return null
 
 func _on_move_vector(vec: Vector2):
 	input_dir = vec
@@ -52,13 +69,12 @@ func _physics_process(delta):
 	if input_dir.length() > 0.05:
 		velocity.x = move.x * speed
 		velocity.z = move.z * speed
-		
-		# Movement ke direction me character ka turn hona
-		var look_rot = atan2(-velocity.x, -velocity.z)
-		if model_node:
-			model_node.rotation.y = lerp_angle(model_node.rotation.y, look_rot - rotation.y + deg_to_rad(180), 10.0 * delta)
+		if anim_player and not anim_player.is_playing():
+			anim_player.play()
 	else:
 		velocity.x = move_toward(velocity.x, 0, speed)
 		velocity.z = move_toward(velocity.z, 0, speed)
+		if anim_player and anim_player.is_playing():
+			anim_player.pause()
 
 	move_and_slide()

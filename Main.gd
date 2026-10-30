@@ -1,76 +1,69 @@
 extends Node3D
 
-var ground_tex: Texture2D = null
+var ground_tex: Texture2D
 
 func _ready():
-	# Sky & Sun
+	# Lighting & Environment
 	var env_node = WorldEnvironment.new()
 	var env = Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.45, 0.68, 0.98)
+	env.background_color = Color(0.48, 0.70, 0.98)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.85, 0.85, 0.85)
+	env.ambient_light_color = Color(0.9, 0.9, 0.9)
 	env_node.environment = env
 	add_child(env_node)
 
 	var sun = DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-45, 35, 0)
-	sun.light_energy = 1.2
+	sun.rotation_degrees = Vector3(-50, 40, 0)
+	sun.light_energy = 1.3
 	add_child(sun)
 
-	# Asli Ground Texture direct binary load
-	ground_tex = _force_load_texture()
+	# Direct Image file load (Bina Godot import cache ke)
+	var img_path = "res://assets/textures/ground.png"
+	if FileAccess.file_exists(img_path):
+		var img = Image.new()
+		if img.load(img_path) == OK:
+			ground_tex = ImageTexture.create_from_image(img)
 
-	# 207MB Map
+	# Map load
 	var map_path = "res://assets/map/Bermuda_Map.glb"
 	if ResourceLoader.exists(map_path):
-		var map_scn = load(map_path)
-		if map_scn:
-			var map_inst = map_scn.instantiate()
-			add_child(map_inst)
-			_apply_all_surfaces(map_inst)
+		var scn = load(map_path)
+		if scn:
+			var inst = scn.instantiate()
+			add_child(inst)
+			_fix_all_white_surfaces(inst)
 
-	# UI Joystick Add
+	# Joystick UI
 	var ui = CanvasLayer.new()
 	ui.name = "UI"
 	ui.set_script(load("res://Joystick.gd"))
 	add_child(ui)
 
 	# Player Spawn
-	var player_scn = load("res://Player.tscn")
-	if player_scn:
-		var p = player_scn.instantiate()
-		p.position = Vector3(0, 10.0, 0)
+	var p_scn = load("res://Player.tscn")
+	if p_scn:
+		var p = p_scn.instantiate()
+		p.position = Vector3(0, 15.0, 0)
 		add_child(p)
 
-func _force_load_texture() -> Texture2D:
-	var path = "res://assets/textures/Terrain_Ground_01_D.png"
-	if not FileAccess.file_exists(path):
-		path = "res://assets/textures/Terrain_Ground_02_D.png"
-	
-	if FileAccess.file_exists(path):
-		var img = Image.new()
-		if img.load(path) == OK:
-			return ImageTexture.create_from_image(img)
-	return null
-
-func _apply_all_surfaces(node: Node):
+func _fix_all_white_surfaces(node: Node):
 	if node is MeshInstance3D:
 		node.create_trimesh_collision()
 		var mesh = node.mesh
 		if mesh:
 			for i in range(mesh.get_surface_count()):
-				var mat = mesh.surface_get_material(i)
-				# Agar surface untextured ya white hai, toh turant ground texture chipkao
-				if mat == null or mat.albedo_texture == null:
+				var old_mat = mesh.surface_get_material(i)
+				# Agar container ya metal car na ho toh zameen aur raste par ground texture pakka lagao
+				var n_name = node.name.to_lower()
+				if not ("container" in n_name or "car" in n_name or "barrel" in n_name):
 					var new_mat = StandardMaterial3D.new()
 					if ground_tex:
 						new_mat.albedo_texture = ground_tex
-						new_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-						new_mat.uv1_scale = Vector3(50, 50, 50)
+						new_mat.uv1_scale = Vector3(45, 45, 45)
 					else:
-						new_mat.albedo_color = Color(0.35, 0.5, 0.25)
+						new_mat.albedo_color = Color(0.25, 0.45, 0.2)
 					node.set_surface_override_material(i, new_mat)
 
 	for c in node.get_children():
-		_apply_all_surfaces(c)
+		_fix_all_white_surfaces(c)
