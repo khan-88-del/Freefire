@@ -1,0 +1,29 @@
+name: Convert FBX to GLB
+
+on:
+  workflow_dispatch:
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Install Assimp
+        run: sudo apt-get update && sudo apt-get install -y assimp
+
+      - name: Convert All FBX to GLB
+        run: |
+          mkdir -p glb_output
+          find animations -name "*.fbx" -type f | while read file; do
+            filename=$(basename "$file" .fbx)
+            echo "Converting $filename..."
+            assimp export "$file" "glb_output/${filename}.glb" || true
+          done
+
+      - name: Upload GLB Zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: all_converted_glb_animations
+          path: glb_output/
