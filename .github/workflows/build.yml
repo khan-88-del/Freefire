@@ -1,4 +1,4 @@
-name: Export Android APK
+name: Build Android APK
 
 on:
   push:
@@ -7,10 +7,18 @@ on:
 
 jobs:
   export:
-    runs-on: ubuntu-latest
+    name: Export Android APK
+    runs-on: ubuntu-22.04
     steps:
-      - name: Checkout Source Code
+      - name: Checkout Source Code with LFS
         uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Ensure LFS Download
+        run: |
+          git lfs pull
+          git lfs status
 
       - name: Setup Java JDK
         uses: actions/setup-java@v4
@@ -18,33 +26,47 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Download Godot Engine & Templates
+      - name: Download Godot Engine & Export Templates
         run: |
           wget -q https://github.com/godotengine/godot/releases/download/4.2.2-stable/Godot_v4.2.2-stable_linux.x86_64.zip
           unzip -q Godot_v4.2.2-stable_linux.x86_64.zip
-          mv Godot_v4.2.2-stable_linux.x86_64 /usr/local/bin/godot
-          chmod +x /usr/local/bin/godot
+          sudo mv Godot_v4.2.2-stable_linux.x86_64 /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
 
           mkdir -p ~/.local/share/godot/export_templates/4.2.2.stable
           wget -q https://github.com/godotengine/godot/releases/download/4.2.2-stable/Godot_v4.2.2-stable_export_templates.tpz
           unzip -q Godot_v4.2.2-stable_export_templates.tpz
           mv templates/* ~/.local/share/godot/export_templates/4.2.2.stable/
 
-      - name: Generate Debug Keystore
+      - name: Generate Local Project Keystore & Configure Preset
         run: |
-          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore debug.keystore -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
+          keytool -genkey -v -keystore ./debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
 
-      - name: Import Assets & Export Android APK
+          mkdir -p ~/.config/godot
+          cat << EOCONFIG > ~/.config/godot/editor_settings-4.tres
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "/usr/local/lib/android/sdk"
+          export/android/debug_keystore = "$PWD/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          export/android/force_system_user = false
+          EOCONFIG
+
+          if [ -f "export_presets.cfg" ]; then
+            sed -i 's|keystore/debug = ""|keystore/debug = "res://debug.keystore"|g' export_presets.cfg
+            sed -i 's|keystore/debug_user = ""|keystore/debug_user = "androiddebugkey"|g' export_presets.cfg
+            sed -i 's|keystore/debug_password = ""|keystore/debug_password = "android"|g' export_presets.cfg
+          fi
+
+      - name: Export Android APK
         run: |
           mkdir -p build/android
-          godot --headless --editor --quit || true
-          godot --headless --export-release "Android" build/android/FreeFire-Bermuda.apk
+          godot --headless --export-debug "Android" build/android/FreeFire-Bermuda.apk
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: FreeFire-Bermuda-APK
-          path: build/android/FreeFire-Bermuda.apk
+          path: build/android/*.apk
