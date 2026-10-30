@@ -5,46 +5,59 @@ signal camera_rotate(relative: Vector2)
 
 var touch_id_stick: int = -1
 var touch_id_cam: int = -1
-var base_pos: Vector2 = Vector2(250, 520)
-var current_pos: Vector2 = Vector2(250, 520)
-var radius: float = 110.0
+
+var stick_center: Vector2 = Vector2(280, 800)
+var stick_knob: Vector2 = Vector2(280, 800)
+var radius: float = 140.0
+var knob_radius: float = 55.0
 
 func _ready():
+	layer = 100
+	_update_positions()
+
+func _update_positions():
+	var v_size = get_viewport().get_visible_rect().size
+	stick_center = Vector2(v_size.x * 0.16, v_size.y * 0.75)
+	stick_knob = stick_center
 	queue_redraw()
 
 func _input(event):
+	var v_size = get_viewport().get_visible_rect().size
+
 	if event is InputEventScreenTouch:
 		if event.pressed:
-			if event.position.x < get_viewport().size.x * 0.45 and touch_id_stick == -1:
+			# Left Half: Touch par Joystick move hoga
+			if event.position.x < v_size.x * 0.45 and touch_id_stick == -1:
 				touch_id_stick = event.index
-				base_pos = event.position
-				current_pos = event.position
+				stick_center = event.position
+				stick_knob = event.position
 				queue_redraw()
-			elif event.position.x >= get_viewport().size.x * 0.45 and touch_id_cam == -1:
+			# Right Half: Camera swipe
+			elif event.position.x >= v_size.x * 0.45 and touch_id_cam == -1:
 				touch_id_cam = event.index
 		else:
 			if event.index == touch_id_stick:
 				touch_id_stick = -1
-				current_pos = base_pos
+				_update_positions()
 				emit_signal("move_vector", Vector2.ZERO)
-				queue_redraw()
 			elif event.index == touch_id_cam:
 				touch_id_cam = -1
 
 	elif event is InputEventScreenDrag:
 		if event.index == touch_id_stick:
-			var diff = event.position - base_pos
+			var diff = event.position - stick_center
 			if diff.length() > radius:
 				diff = diff.normalized() * radius
-			current_pos = base_pos + diff
+			stick_knob = stick_center + diff
 			emit_signal("move_vector", diff / radius)
 			queue_redraw()
 		elif event.index == touch_id_cam:
 			emit_signal("camera_rotate", event.relative)
 
 func _draw():
-	# Outer border ring
-	draw_circle(base_pos, radius, Color(0.1, 0.1, 0.1, 0.45))
-	draw_arc(base_pos, radius, 0, TAU, 32, Color(1, 1, 1, 0.7), 4.0)
-	# Inner Thumb Knob
-	draw_circle(current_pos, radius * 0.38, Color(1, 0.85, 0.1, 0.85))
+	# Outer Joystick Ring
+	draw_circle(stick_center, radius, Color(0.0, 0.0, 0.0, 0.35))
+	draw_arc(stick_center, radius, 0, TAU, 32, Color(1.0, 1.0, 1.0, 0.8), 5.0)
+	# Inner Active Knob
+	draw_circle(stick_knob, knob_radius, Color(1.0, 0.8, 0.0, 0.85))
+	draw_arc(stick_knob, knob_radius, 0, TAU, 24, Color(1.0, 1.0, 1.0, 0.9), 3.0)
