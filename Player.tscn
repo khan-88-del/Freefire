@@ -1,7 +1,6 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://Player.gd" id="1_script"]
-[ext_resource type="PackedScene" path="res://assets/player/ns_twins_3d_model.glb" id="2_model"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
 radius = 0.4
@@ -13,17 +12,3 @@ script = ExtResource("1_script")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
 shape = SubResource("CapsuleShape3D_1")
-
-[node name="ModelNode" type="Node3D" parent="."]
-
-[node name="ns_twins_3d_model" parent="ModelNode" instance=ExtResource("2_model")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
-
-[node name="SpringArm3D" type="SpringArm3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.965926, 0.258819, 0, -0.258819, 0.965926, 0.45, 1.55, 0)
-spring_length = 2.8
-margin = 0.2
-
-[node name="Camera3D" type="Camera3D" parent="SpringArm3D"]
-current = true
-fov = 70.0
