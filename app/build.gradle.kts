@@ -21,8 +21,7 @@ android {
 
         externalNativeBuild {
             cmake {
-                cppFlags("-std=c++17 -O3 -fvisibility=hidden -fomit-frame-pointer")
-                arguments("-DANDROID_STL=c++_shared")
+                cppFlags("-std=c++17 -O3")
             }
         }
     }
@@ -40,7 +39,6 @@ android {
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
         }
     }
 
