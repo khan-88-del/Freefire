@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Native Keymapper</string>
+    <string name="service_description">Global Gamepad and TV Remote Touch Simulator</string>
+</resources>
