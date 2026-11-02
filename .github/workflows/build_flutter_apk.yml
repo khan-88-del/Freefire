@@ -29,10 +29,6 @@ jobs:
           rm -rf android
           flutter create . --project-name=madarsa_app --platforms=android --org=com.madarsa.app
 
-      - name: Setup App Icons
-        run: |
-          flutter pub get
-          dart run flutter_launcher_icons
 
           # Duplicate resource error से बचने के लिए anydpi-v26 से png फ़ाइल हटाएं
           rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.png

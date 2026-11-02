@@ -1,27 +1,25 @@
 import 'package:flutter/material.dart';
-import 'screens/splash_screen.dart';
+import 'package:flutter/services.dart';
+import 'splash_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
   runApp(const MadarsaApp());
 }
 
 class MadarsaApp extends StatelessWidget {
-  const MadarsaApp({super.key});
+  const MadarsaApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Madarsa Darul Uloom',
+      title: 'Madarsa Portal',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0F5132),
-          primary: const Color(0xFF0F5132),
-          secondary: const Color(0xFFD4AF37),
-          surface: const Color(0xFFF8F9FA),
-        ),
+        primarySwatch: Colors.green,
       ),
       home: const SplashScreen(),
     );
