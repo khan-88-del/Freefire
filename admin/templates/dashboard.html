@@ -5,114 +5,254 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Madarsa Admin Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
-        body { background-color: #0f172a; color: #f8fafc; font-family: sans-serif; }
-        .card { background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; }
-        .nav-tabs .nav-link { color: #94a3b8; font-weight: bold; }
-        .nav-tabs .nav-link.active { background-color: #1e293b; color: #10b981; border-color: #334155 #334155 #1e293b; }
-        .btn-success { background-color: #059669; border: none; }
-        .btn-success:hover { background-color: #047857; }
-        .form-control, .form-select { background-color: #0f172a; border: 1px solid #334155; color: #fff; }
-        .form-control:focus, .form-select:focus { background-color: #0f172a; color: #fff; border-color: #10b981; box-shadow: none; }
-        .gallery-img, .gallery-vid { width: 100%; height: 180px; object-fit: cover; border-radius: 8px; border: 1px solid #334155; }
+        :root {
+            --primary-emerald: #059669;
+            --emerald-glow: rgba(5, 150, 105, 0.25);
+            --gold-accent: #d97706;
+            --card-bg: #1e293b;
+            --bg-dark: #090d16;
+            --border-line: #334155;
+        }
+        body { 
+            background: linear-gradient(135deg, var(--bg-dark) 0%, #0f172a 100%); 
+            color: #f1f5f9; 
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+        }
+        .navbar-custom {
+            background-color: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-line);
+        }
+        .card-custom { 
+            background-color: var(--card-bg); 
+            border: 1px solid var(--border-line); 
+            border-radius: 16px; 
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+        }
+        .nav-pills .nav-link { 
+            color: #94a3b8; 
+            font-weight: 600; 
+            border-radius: 10px;
+            padding: 8px 18px;
+            transition: all 0.2s ease;
+        }
+        .nav-pills .nav-link.active { 
+            background-color: var(--primary-emerald); 
+            color: #ffffff; 
+            box-shadow: 0 4px 12px var(--emerald-glow);
+        }
+        .form-control, .form-select { 
+            background-color: #0b1120; 
+            border: 1px solid var(--border-line); 
+            color: #fff; 
+            border-radius: 10px;
+            padding: 10px 14px;
+        }
+        .form-control:focus, .form-select:focus { 
+            background-color: #0b1120; 
+            color: #fff; 
+            border-color: var(--primary-emerald); 
+            box-shadow: 0 0 0 3px var(--emerald-glow); 
+        }
+        .media-container {
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #0b1120;
+            border: 1px solid var(--border-line);
+        }
+        .gallery-img, .gallery-vid { 
+            width: 100%; 
+            height: 190px; 
+            object-fit: cover; 
+            display: block;
+        }
+        .delete-btn-overlay {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            z-index: 5;
+            background: rgba(220, 38, 38, 0.85);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 5px 10px;
+            font-size: 13px;
+            backdrop-filter: blur(4px);
+            transition: background 0.2s;
+        }
+        .delete-btn-overlay:hover {
+            background: #dc2626;
+        }
+        .progress-box {
+            background-color: #0b1120;
+            border: 1px solid var(--border-line);
+            border-radius: 12px;
+            padding: 16px;
+        }
+        .progress-bar-animated {
+            background: linear-gradient(90deg, #059669, #10b981);
+        }
     </style>
 </head>
-<body class="p-3 p-md-4">
-    <div class="container">
-        <!-- Header -->
-        <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom border-secondary">
-            <h4 class="text-success m-0">Madarsa Admin Portal</h4>
-            <div>
-                <span class="me-3 text-light">Welcome, <strong>{{ username }}</strong></span>
-                <a href="/logout" class="btn btn-outline-danger btn-sm">Khurooj (Logout)</a>
+<body class="pb-5">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand navbar-custom sticky-top mb-4 px-3 py-3">
+        <div class="container d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-shield-check text-success fs-4"></i>
+                <span class="fw-bold fs-5 text-white">Madarsa Admin Portal</span>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <span class="text-secondary small d-none d-md-inline">Welcome, <strong class="text-light">{{ username }}</strong></span>
+                <a href="/logout" class="btn btn-outline-danger btn-sm px-3 rounded-pill">
+                    <i class="bi bi-box-arrow-right me-1"></i> Khurooj
+                </a>
             </div>
         </div>
+    </nav>
 
+    <div class="container">
+        <!-- Flash Alerts -->
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
-              <div class="alert alert-{{ category }} py-2">{{ message }}</div>
+              <div class="alert alert-{{ category }} alert-dismissible fade show rounded-3 py-2" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+              </div>
             {% endfor %}
           {% endif %}
         {% endwith %}
 
-        <!-- Madarsa Gallery Section -->
-        <div class="card p-3 mb-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="text-warning m-0">Madarsa Gallery (Cloudinary Tag: 809047)</h5>
-                <span class="badge bg-secondary">Target: 809047</span>
+        <!-- Madarsa Media Gallery -->
+        <div class="card card-custom p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <div>
+                    <h5 class="fw-bold mb-1 text-warning"><i class="bi bi-images me-2"></i>Madarsa Media Gallery</h5>
+                    <small class="text-secondary">Cloudinary Direct Upload with Realtime Progress</small>
+                </div>
+                <span class="badge bg-dark border border-secondary px-3 py-2 rounded-pill text-info">
+                    <i class="bi bi-tag-fill me-1"></i> Tag: 809047
+                </span>
             </div>
 
-            <!-- Tabs Navigation -->
-            <ul class="nav nav-tabs mb-3" id="galleryTab" role="tablist">
+            <!-- Tab Pills -->
+            <ul class="nav nav-pills gap-2 mb-4" id="galleryTab" role="tablist">
                 <li class="nav-item">
-                    <button class="nav-link active" id="photos-tab" data-bs-toggle="tab" data-bs-target="#photos" type="button">Photos ({{ photos|length }})</button>
+                    <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#photos">
+                        <i class="bi bi-camera me-1"></i> Photos ({{ photos|length }})
+                    </button>
                 </li>
                 <li class="nav-item">
-                    <button class="nav-link" id="videos-tab" data-bs-toggle="tab" data-bs-target="#videos" type="button">Videos ({{ videos|length }})</button>
+                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#videos">
+                        <i class="bi bi-camera-video me-1"></i> Videos ({{ videos|length }})
+                    </button>
                 </li>
                 <li class="nav-item">
-                    <button class="nav-link text-info" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button">+ Upload Media</button>
+                    <button class="nav-link text-warning" data-bs-toggle="pill" data-bs-target="#upload">
+                        <i class="bi bi-cloud-arrow-up-fill me-1"></i> Direct Upload
+                    </button>
                 </li>
             </ul>
 
-            <!-- Tabs Content -->
-            <div class="tab-content" id="galleryTabContent">
-                <!-- 1. Photos -->
-                <div class="tab-pane fade show active" id="photos" role="tabpanel">
+            <div class="tab-content">
+                <!-- 1. Photos Tab -->
+                <div class="tab-pane fade show active" id="photos">
                     <div class="row g-3">
                         {% for img in photos %}
                         <div class="col-6 col-md-3">
-                            <a href="{{ img.secure_url }}" target="_blank">
-                                <img src="{{ img.secure_url }}" class="gallery-img" alt="Madarsa Photo">
-                            </a>
+                            <div class="media-container">
+                                <form action="/gallery/delete" method="POST" onsubmit="return confirm('Kya aap waqai is photo ko delete karna chahte hain?');">
+                                    <input type="hidden" name="public_id" value="{{ img.public_id }}">
+                                    <input type="hidden" name="resource_type" value="image">
+                                    <button type="submit" class="delete-btn-overlay" title="Delete Photo">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                                <a href="{{ img.secure_url }}" target="_blank">
+                                    <img src="{{ img.secure_url }}" class="gallery-img" alt="Photo">
+                                </a>
+                            </div>
                         </div>
                         {% else %}
-                        <div class="col-12 text-center text-muted py-4">Abhi koi photo upload nahi hui hai (Tag: 809047).</div>
+                        <div class="col-12 text-center text-secondary py-5">
+                            <i class="bi bi-image fs-1 d-block mb-2"></i>Abhi koi photo upload nahi hui hai (Tag: 809047).
+                        </div>
                         {% endfor %}
                     </div>
                 </div>
 
-                <!-- 2. Videos -->
-                <div class="tab-pane fade" id="videos" role="tabpanel">
+                <!-- 2. Videos Tab -->
+                <div class="tab-pane fade" id="videos">
                     <div class="row g-3">
                         {% for vid in videos %}
                         <div class="col-12 col-md-4">
-                            <video controls class="gallery-vid">
-                                <source src="{{ vid.secure_url }}" type="video/mp4">
-                            </video>
+                            <div class="media-container">
+                                <form action="/gallery/delete" method="POST" onsubmit="return confirm('Kya aap waqai is video ko delete karna chahte hain?');">
+                                    <input type="hidden" name="public_id" value="{{ vid.public_id }}">
+                                    <input type="hidden" name="resource_type" value="video">
+                                    <button type="submit" class="delete-btn-overlay" title="Delete Video">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                                <video controls class="gallery-vid">
+                                    <source src="{{ vid.secure_url }}" type="video/mp4">
+                                </video>
+                            </div>
                         </div>
                         {% else %}
-                        <div class="col-12 text-center text-muted py-4">Abhi koi video upload nahi hui hai (Tag: 809047).</div>
+                        <div class="col-12 text-center text-secondary py-5">
+                            <i class="bi bi-play-circle fs-1 d-block mb-2"></i>Abhi koi video upload nahi hui hai (Tag: 809047).
+                        </div>
                         {% endfor %}
                     </div>
                 </div>
 
-                <!-- 3. Upload Media -->
-                <div class="tab-pane fade" id="upload" role="tabpanel">
-                    <form action="/gallery/upload" method="POST" enctype="multipart/form-data" class="row g-3 mt-1">
-                        <div class="col-md-4">
-                            <label class="form-label text-light">Media Type Select Karein:</label>
-                            <select name="media_type" class="form-select" required>
-                                <option value="image">Photo (Image)</option>
-                                <option value="video">Video (MP4/WebM)</option>
-                            </select>
+                <!-- 3. Direct Upload Tab -->
+                <div class="tab-pane fade" id="upload">
+                    <div class="p-3 progress-box">
+                        <h6 class="text-light mb-3"><i class="bi bi-lightning-charge text-warning me-1"></i> Direct Cloudinary Upload (Zero Server Timeout)</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label small text-secondary">Media Type:</label>
+                                <select id="uploadType" class="form-select">
+                                    <option value="image">Photo (Image)</option>
+                                    <option value="video">Video (MP4/WebM)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label small text-secondary">File Chunein:</label>
+                                <input type="file" id="mediaFileInput" class="form-control" accept="image/*,video/*">
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end">
+                                <button type="button" id="startUploadBtn" class="btn btn-success w-100 rounded-3 py-2 fw-semibold">
+                                    <i class="bi bi-cloud-arrow-up me-1"></i> Upload Start
+                                </button>
+                            </div>
                         </div>
-                        <div class="col-md-5">
-                            <label class="form-label text-light">File Chunein:</label>
-                            <input type="file" name="media_file" class="form-control" required>
+
+                        <!-- Progress Bar Section -->
+                        <div id="progressArea" class="mt-4 d-none">
+                            <div class="d-flex justify-content-between text-secondary small mb-1">
+                                <span id="uploadStatusText">Uploading to Cloudinary...</span>
+                                <span id="uploadPercent" class="fw-bold text-success">0%</span>
+                            </div>
+                            <div class="progress" style="height: 10px; background-color: #1e293b; border-radius: 6px;">
+                                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                            </div>
                         </div>
-                        <div class="col-md-3 d-flex align-items-end">
-                            <button type="submit" class="btn btn-success w-100">Upload to Cloudinary</button>
-                        </div>
-                    </form>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Masail Entry Section -->
-        <div class="card p-3">
-            <h5 class="text-success mb-3">Naya Masla Record Add Karein</h5>
+        <!-- Masla Entry Form -->
+        <div class="card card-custom p-4">
+            <h5 class="fw-bold text-success mb-3"><i class="bi bi-journal-plus me-2"></i>Naya Masla Record Add Karein</h5>
             <form action="/masla/add" method="POST" class="row g-3">
                 <div class="col-md-6">
                     <input type="text" name="title" class="form-control" placeholder="Masle Ka Unwan (Title)" required>
@@ -130,12 +270,94 @@
                     <textarea name="explanation" class="form-control" rows="3" placeholder="Masle Ki Mukhtasar Tashreeh..." required></textarea>
                 </div>
                 <div class="col-12">
-                    <button type="submit" class="btn btn-primary">Masla Mehfooz Karein</button>
+                    <button type="submit" class="btn btn-primary px-4 py-2 rounded-3 fw-semibold">
+                        <i class="bi bi-check2-circle me-1"></i> Masla Mehfooz Karein
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const startUploadBtn = document.getElementById('startUploadBtn');
+        const fileInput = document.getElementById('mediaFileInput');
+        const uploadType = document.getElementById('uploadType');
+        const progressArea = document.getElementById('progressArea');
+        const progressBar = document.getElementById('progressBar');
+        const uploadPercent = document.getElementById('uploadPercent');
+        const uploadStatusText = document.getElementById('uploadStatusText');
+
+        startUploadBtn.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Pehle koi photo ya video select karein!');
+                return;
+            }
+
+            startUploadBtn.disabled = true;
+            progressArea.classList.remove('d-none');
+            uploadStatusText.innerText = 'Server se secure upload token liya ja raha hai...';
+            progressBar.style.width = '5%';
+            uploadPercent.innerText = '5%';
+
+            try {
+                // 1. Get Signature from backend
+                const signRes = await fetch('/gallery/signature', { method: 'POST' });
+                if (!signRes.ok) throw new Error('Authorization fail!');
+                const signData = await signRes.json();
+
+                // 2. Prepare FormData for Cloudinary Direct Upload
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('api_key', signData.api_key);
+                formData.append('timestamp', signData.timestamp);
+                formData.append('signature', signData.signature);
+                formData.append('folder', signData.folder);
+                formData.append('tags', signData.tags);
+
+                const resourceType = uploadType.value;
+                const uploadUrl = `https://api.cloudinary.com/v1_1/${signData.cloud_name}/${resourceType}/upload`;
+
+                // 3. XMLHttpRequest for Realtime Progress
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', uploadUrl, true);
+
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        const percent = Math.round((e.loaded / e.total) * 100);
+                        progressBar.style.width = percent + '%';
+                        uploadPercent.innerText = percent + '%';
+                        uploadStatusText.innerText = `Cloudinary par upload ho raha hai: ${percent}%`;
+                    }
+                };
+
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        progressBar.style.width = '100%';
+                        uploadPercent.innerText = '100%';
+                        uploadStatusText.innerText = 'Upload mukammal! Page refresh ho raha hai...';
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1200);
+                    } else {
+                        throw new Error('Cloudinary upload fail!');
+                    }
+                };
+
+                xhr.onerror = () => {
+                    alert('Network error ki wajah se upload fail hua.');
+                    startUploadBtn.disabled = false;
+                };
+
+                xhr.send(formData);
+
+            } catch (err) {
+                alert('Error: ' + err.message);
+                startUploadBtn.disabled = false;
+                progressArea.classList.add('d-none');
+            }
+        });
+    </script>
 </body>
 </html>

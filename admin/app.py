@@ -1,5 +1,6 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+import time
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_limiter import Limiter
@@ -7,6 +8,7 @@ from flask_limiter.util import get_remote_address
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
+import cloudinary.utils
 
 app = Flask(__name__)
 
@@ -14,13 +16,17 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'madarsa-secret-key-prod-2026')
 
 # Cloudinary Configuration
+CLOUD_NAME = "zufwpc7e"
+API_KEY = "388794978456266"
+API_SECRET = "8PSkiOY-CtKiRECNldZz_Y6v2-A"
+MADARSA_TAG = "809047"
+
 cloudinary.config(
-    cloud_name = "zufwpc7e",
-    api_key = "388794978456266",
-    api_secret = "8PSkiOY-CtKiRECNldZz_Y6v2-A",
+    cloud_name = CLOUD_NAME,
+    api_key = API_KEY,
+    api_secret = API_SECRET,
     secure = True
 )
-MADARSA_TAG = "809047"
 
 # Database URL
 db_url = os.environ.get('DATABASE_URL', '').strip()
@@ -93,43 +99,68 @@ def dashboard():
     
     masail = MaslaEntry.query.order_by(MaslaEntry.id.desc()).all()
     
-    # Fetch tagged Photos from Cloudinary
     photos = []
     videos = []
     try:
-        p_res = cloudinary.api.resources_by_tag(MADARSA_TAG, resource_type="image", max_results=30)
+        p_res = cloudinary.api.resources_by_tag(MADARSA_TAG, resource_type="image", max_results=50)
         photos = p_res.get('resources', [])
         
-        v_res = cloudinary.api.resources_by_tag(MADARSA_TAG, resource_type="video", max_results=30)
+        v_res = cloudinary.api.resources_by_tag(MADARSA_TAG, resource_type="video", max_results=50)
         videos = v_res.get('resources', [])
     except Exception as e:
         print("Cloudinary fetch error:", e)
 
-    return render_template('dashboard.html', username=session['username'], masail=masail, photos=photos, videos=videos)
+    return render_template('dashboard.html', 
+                           username=session['username'], 
+                           masail=masail, 
+                           photos=photos, 
+                           videos=videos,
+                           cloud_name=CLOUD_NAME,
+                           api_key=API_KEY)
 
-@app.route('/gallery/upload', methods=['POST'])
-def upload_gallery():
+# Direct Upload Signature API
+@app.route('/gallery/signature', methods=['POST'])
+def generate_signature():
+    if 'admin_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    timestamp = int(time.time())
+    folder = f"madarsa_{MADARSA_TAG}"
+    tags = f"{MADARSA_TAG},madarsa_portal"
+    
+    params_to_sign = {
+        'folder': folder,
+        'tags': tags,
+        'timestamp': timestamp
+    }
+    
+    signature = cloudinary.utils.api_sign_request(params_to_sign, API_SECRET)
+    
+    return jsonify({
+        'signature': signature,
+        'timestamp': timestamp,
+        'api_key': API_KEY,
+        'cloud_name': CLOUD_NAME,
+        'folder': folder,
+        'tags': tags
+    })
+
+# Delete Media Route
+@app.route('/gallery/delete', methods=['POST'])
+def delete_media():
     if 'admin_id' not in session:
         return redirect(url_for('login'))
     
-    file = request.files.get('media_file')
-    media_type = request.form.get('media_type', 'image') # image or video
+    public_id = request.form.get('public_id')
+    resource_type = request.form.get('resource_type', 'image')
     
-    if not file or file.filename == '':
-        flash('Koi file select nahi ki gayi.', 'danger')
-        return redirect(url_for('dashboard'))
-    
-    try:
-        cloudinary.uploader.upload(
-            file,
-            resource_type = media_type,
-            tags = [MADARSA_TAG, "madarsa_portal"],
-            folder = f"madarsa_{MADARSA_TAG}/"
-        )
-        flash('File kamyabi se Cloudinary par 809047 tag ke sath upload ho gayi!', 'success')
-    except Exception as e:
-        flash(f'Upload fail ho gaya: {str(e)}', 'danger')
-        
+    if public_id:
+        try:
+            cloudinary.uploader.destroy(public_id, resource_type=resource_type)
+            flash('File kamyabi se delete kar di gayi.', 'success')
+        except Exception as e:
+            flash(f'Delete nahi ho saki: {str(e)}', 'danger')
+            
     return redirect(url_for('dashboard'))
 
 @app.route('/masla/add', methods=['POST'])
