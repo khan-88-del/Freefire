@@ -29,13 +29,19 @@ jobs:
           rm -rf android
           flutter create . --project-name=madarsa_app --platforms=android --org=com.madarsa.app
 
-      - name: Setup App Icons
+      - name: Force Replace All Launcher Icons
         run: |
           flutter pub get
           dart run flutter_launcher_icons
-          # Ensure Manifest explicitly points to generated launcher icons for Package Installer
-          sed -i 's/android:icon="[^"]*"/android:icon="@mipmap\/ic_launcher"/g' android/app/src/main/AndroidManifest.xml
-          sed -i 's/android:roundIcon="[^"]*"/android:roundIcon="@mipmap\/ic_launcher"/g' android/app/src/main/AndroidManifest.xml 2>/dev/null || true
+
+          # Package Installer के लिए हर mipmap फोल्डर में ic_launcher.png को आपके लोगो से ओवरराइट करें
+          for dir in android/app/src/main/res/mipmap-*; do
+            cp assets/icon.png "$dir/ic_launcher.png" 2>/dev/null || true
+            cp assets/icon.png "$dir/ic_launcher_round.png" 2>/dev/null || true
+          done
+
+          # AndroidManifest.xml में icon और roundIcon दोनों को सुनिश्चित करें
+          sed -i 's/android:icon="[^"]*"/android:icon="@mipmap\/ic_launcher" android:roundIcon="@mipmap\/ic_launcher"/g' android/app/src/main/AndroidManifest.xml
 
       - name: Build Android APK
         run: flutter build apk --release --no-tree-shake-icons
