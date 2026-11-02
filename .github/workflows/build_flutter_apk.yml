@@ -24,10 +24,6 @@ jobs:
           flutter-version: '3.24.0'
           channel: 'stable'
 
-      - name: Scaffold Android
-        run: |
-          flutter create . --project-name=madarsa_app --platforms=android --org=com.madarsa.app
-
       - name: Get Dependencies
         run: flutter pub get
 
