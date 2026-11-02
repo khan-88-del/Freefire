@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Madarsa Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <nav class="bg-emerald-800 text-white p-4 shadow-md flex justify-between items-center">
+        <h1 class="text-xl font-bold tracking-wide">Madarsa Darul Uloom Dashboard</h1>
+        <div class="flex items-center gap-4">
+            <span class="text-emerald-200 text-sm">Aapka Account: {{ username }}</span>
+            <a href="/logout" class="bg-red-600 hover:bg-red-700 text-xs font-semibold px-3 py-2 rounded">Logout</a>
+        </div>
+    </nav>
+    <main class="max-w-6xl mx-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 md:col-span-1">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Naya Masla / Daleel Jodein</h2>
+            <form action="/masla/add" method="POST" class="space-y-3">
+                <input type="text" name="title" placeholder="Masla Title" required class="w-full border p-2 rounded text-sm">
+                <input type="text" name="book_title" placeholder="Kitab Ka Naam (e.g. Fatawa Shami)" required class="w-full border p-2 rounded text-sm">
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" name="volume" placeholder="Jild (Vol)" class="border p-2 rounded text-sm">
+                    <input type="number" name="page_number" placeholder="Safha No." class="border p-2 rounded text-sm">
+                </div>
+                <textarea name="explanation" rows="4" placeholder="Mukammal Hukm o Tashreeh..." required class="w-full border p-2 rounded text-sm"></textarea>
+                <button type="submit" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-medium py-2 rounded text-sm">Record Mehfooz Karein</button>
+            </form>
+        </section>
+        <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 md:col-span-2">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Kutub o Masail List ({{ masail|length }})</h2>
+            <div class="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
+                {% for m in masail %}
+                <div class="py-3">
+                    <div class="flex justify-between items-start">
+                        <h3 class="font-bold text-slate-800">{{ m.title }}</h3>
+                        <span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded">{{ m.book_title }} (Jild: {{ m.volume }}, Safha: {{ m.page_number }})</span>
+                    </div>
+                    <p class="text-slate-600 text-sm mt-1">{{ m.explanation }}</p>
+                </div>
+                {% else %}
+                <p class="text-slate-400 text-sm text-center py-8">Abhi koi masla record nahi hua hai.</p>
+                {% endfor %}
+            </div>
+        </section>
+    </main>
+</body>
+</html>

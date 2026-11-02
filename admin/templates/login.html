@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ur" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Madarsa Admin Gateway</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 w-full max-w-md p-8 rounded-2xl shadow-2xl">
+        <div class="text-center mb-6">
+            <h1 class="text-2xl font-bold text-emerald-400">Madarsa Admin Portal</h1>
+            <p class="text-slate-400 text-sm mt-1">Authorized Entry Only</p>
+        </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, msg in messages %}
+              <div class="p-3 mb-4 text-sm rounded bg-red-500/10 border border-red-500/20 text-red-400">{{ msg }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+        <form method="POST" class="space-y-4">
+            <div>
+                <label class="block text-slate-300 text-sm font-medium mb-1">Admin Username</label>
+                <input type="text" name="username" required autocomplete="off" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-emerald-500">
+            </div>
+            <div>
+                <label class="block text-slate-300 text-sm font-medium mb-1">Password</label>
+                <input type="password" name="password" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:outline-none focus:border-emerald-500">
+            </div>
+            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 rounded-lg transition duration-200">Dakhil Hon (Login)</button>
+        </form>
+    </div>
+</body>
+</html>
