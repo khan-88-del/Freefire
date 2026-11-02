@@ -8,7 +8,7 @@ from flask_limiter.util import get_remote_address
 app = Flask(__name__)
 
 # Security Configs
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-dev-secret-change-on-render')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'madarsa-super-secret-key-prod-2026')
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///madarsa.db')
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
@@ -38,11 +38,20 @@ class MaslaEntry(db.Model):
     volume = db.Column(db.String(50))
     page_number = db.Column(db.Integer)
 
+# ऑटो-क्रिएट टेबल और ऑटो-क्रिएट एडमिन
 with app.app_context():
     db.create_all()
+    # अगर एडमिन मौजूद नहीं है तो अपने आप बना देगा
+    admin_user = AdminUser.query.filter_by(username="itsmeatifkhan").first()
+    if not admin_user:
+        hashed = bcrypt.generate_password_hash("atif809047").decode('utf-8')
+        new_admin = AdminUser(username="itsmeatifkhan", password_hash=hashed)
+        db.session.add(new_admin)
+        db.session.commit()
+        print(">>> Default Super Admin Created Successfully! <<<")
 
 @app.route('/login', methods=['GET', 'POST'])
-@limiter.limit("5 per minute")
+@limiter.limit("10 per minute")
 def login():
     if request.method == 'POST':
         user = AdminUser.query.filter_by(username=request.form.get('username')).first()
@@ -57,7 +66,7 @@ def login():
 def dashboard():
     if 'admin_id' not in session:
         return redirect(url_for('login'))
-    masail = MaslaEntry.query.order_id = MaslaEntry.query.order_by(MaslaEntry.id.desc()).all()
+    masail = MaslaEntry.query.order_by(MaslaEntry.id.desc()).all()
     return render_template('dashboard.html', username=session['username'], masail=masail)
 
 @app.route('/masla/add', methods=['POST'])
