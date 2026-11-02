@@ -1,49 +1,141 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ur" dir="ltr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Madarsa Admin</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Madarsa Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: sans-serif; }
+        .card { background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; }
+        .nav-tabs .nav-link { color: #94a3b8; font-weight: bold; }
+        .nav-tabs .nav-link.active { background-color: #1e293b; color: #10b981; border-color: #334155 #334155 #1e293b; }
+        .btn-success { background-color: #059669; border: none; }
+        .btn-success:hover { background-color: #047857; }
+        .form-control, .form-select { background-color: #0f172a; border: 1px solid #334155; color: #fff; }
+        .form-control:focus, .form-select:focus { background-color: #0f172a; color: #fff; border-color: #10b981; box-shadow: none; }
+        .gallery-img, .gallery-vid { width: 100%; height: 180px; object-fit: cover; border-radius: 8px; border: 1px solid #334155; }
+    </style>
 </head>
-<body class="bg-slate-100 min-h-screen">
-    <nav class="bg-emerald-800 text-white p-4 shadow-md flex justify-between items-center">
-        <h1 class="text-xl font-bold tracking-wide">Madarsa Darul Uloom Dashboard</h1>
-        <div class="flex items-center gap-4">
-            <span class="text-emerald-200 text-sm">Aapka Account: {{ username }}</span>
-            <a href="/logout" class="bg-red-600 hover:bg-red-700 text-xs font-semibold px-3 py-2 rounded">Logout</a>
-        </div>
-    </nav>
-    <main class="max-w-6xl mx-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 md:col-span-1">
-            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Naya Masla / Daleel Jodein</h2>
-            <form action="/masla/add" method="POST" class="space-y-3">
-                <input type="text" name="title" placeholder="Masla Title" required class="w-full border p-2 rounded text-sm">
-                <input type="text" name="book_title" placeholder="Kitab Ka Naam (e.g. Fatawa Shami)" required class="w-full border p-2 rounded text-sm">
-                <div class="grid grid-cols-2 gap-2">
-                    <input type="text" name="volume" placeholder="Jild (Vol)" class="border p-2 rounded text-sm">
-                    <input type="number" name="page_number" placeholder="Safha No." class="border p-2 rounded text-sm">
-                </div>
-                <textarea name="explanation" rows="4" placeholder="Mukammal Hukm o Tashreeh..." required class="w-full border p-2 rounded text-sm"></textarea>
-                <button type="submit" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-medium py-2 rounded text-sm">Record Mehfooz Karein</button>
-            </form>
-        </section>
-        <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 md:col-span-2">
-            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Kutub o Masail List ({{ masail|length }})</h2>
-            <div class="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
-                {% for m in masail %}
-                <div class="py-3">
-                    <div class="flex justify-between items-start">
-                        <h3 class="font-bold text-slate-800">{{ m.title }}</h3>
-                        <span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded">{{ m.book_title }} (Jild: {{ m.volume }}, Safha: {{ m.page_number }})</span>
-                    </div>
-                    <p class="text-slate-600 text-sm mt-1">{{ m.explanation }}</p>
-                </div>
-                {% else %}
-                <p class="text-slate-400 text-sm text-center py-8">Abhi koi masla record nahi hua hai.</p>
-                {% endfor %}
+<body class="p-3 p-md-4">
+    <div class="container">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom border-secondary">
+            <h4 class="text-success m-0">Madarsa Admin Portal</h4>
+            <div>
+                <span class="me-3 text-light">Welcome, <strong>{{ username }}</strong></span>
+                <a href="/logout" class="btn btn-outline-danger btn-sm">Khurooj (Logout)</a>
             </div>
-        </section>
-    </main>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} py-2">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <!-- Madarsa Gallery Section -->
+        <div class="card p-3 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="text-warning m-0">Madarsa Gallery (Cloudinary Tag: 809047)</h5>
+                <span class="badge bg-secondary">Target: 809047</span>
+            </div>
+
+            <!-- Tabs Navigation -->
+            <ul class="nav nav-tabs mb-3" id="galleryTab" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active" id="photos-tab" data-bs-toggle="tab" data-bs-target="#photos" type="button">Photos ({{ photos|length }})</button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" id="videos-tab" data-bs-toggle="tab" data-bs-target="#videos" type="button">Videos ({{ videos|length }})</button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link text-info" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button">+ Upload Media</button>
+                </li>
+            </ul>
+
+            <!-- Tabs Content -->
+            <div class="tab-content" id="galleryTabContent">
+                <!-- 1. Photos -->
+                <div class="tab-pane fade show active" id="photos" role="tabpanel">
+                    <div class="row g-3">
+                        {% for img in photos %}
+                        <div class="col-6 col-md-3">
+                            <a href="{{ img.secure_url }}" target="_blank">
+                                <img src="{{ img.secure_url }}" class="gallery-img" alt="Madarsa Photo">
+                            </a>
+                        </div>
+                        {% else %}
+                        <div class="col-12 text-center text-muted py-4">Abhi koi photo upload nahi hui hai (Tag: 809047).</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- 2. Videos -->
+                <div class="tab-pane fade" id="videos" role="tabpanel">
+                    <div class="row g-3">
+                        {% for vid in videos %}
+                        <div class="col-12 col-md-4">
+                            <video controls class="gallery-vid">
+                                <source src="{{ vid.secure_url }}" type="video/mp4">
+                            </video>
+                        </div>
+                        {% else %}
+                        <div class="col-12 text-center text-muted py-4">Abhi koi video upload nahi hui hai (Tag: 809047).</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- 3. Upload Media -->
+                <div class="tab-pane fade" id="upload" role="tabpanel">
+                    <form action="/gallery/upload" method="POST" enctype="multipart/form-data" class="row g-3 mt-1">
+                        <div class="col-md-4">
+                            <label class="form-label text-light">Media Type Select Karein:</label>
+                            <select name="media_type" class="form-select" required>
+                                <option value="image">Photo (Image)</option>
+                                <option value="video">Video (MP4/WebM)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label text-light">File Chunein:</label>
+                            <input type="file" name="media_file" class="form-control" required>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-success w-100">Upload to Cloudinary</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Masail Entry Section -->
+        <div class="card p-3">
+            <h5 class="text-success mb-3">Naya Masla Record Add Karein</h5>
+            <form action="/masla/add" method="POST" class="row g-3">
+                <div class="col-md-6">
+                    <input type="text" name="title" class="form-control" placeholder="Masle Ka Unwan (Title)" required>
+                </div>
+                <div class="col-md-6">
+                    <input type="text" name="book_title" class="form-control" placeholder="Kitab Ka Naam (e.g. Bahar-e-Shariat)" required>
+                </div>
+                <div class="col-md-3 col-6">
+                    <input type="text" name="volume" class="form-control" placeholder="Jild (Volume)">
+                </div>
+                <div class="col-md-3 col-6">
+                    <input type="number" name="page_number" class="form-control" placeholder="Safa Number">
+                </div>
+                <div class="col-12">
+                    <textarea name="explanation" class="form-control" rows="3" placeholder="Masle Ki Mukhtasar Tashreeh..." required></textarea>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary">Masla Mehfooz Karein</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -4,11 +4,23 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 app = Flask(__name__)
 
 # Security Configs
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'madarsa-secret-key-prod-2026')
+
+# Cloudinary Configuration
+cloudinary.config(
+    cloud_name = "zufwpc7e",
+    api_key = "388794978456266",
+    api_secret = "8PSkiOY-CtKiRECNldZz_Y6v2-A",
+    secure = True
+)
+MADARSA_TAG = "809047"
 
 # Database URL
 db_url = os.environ.get('DATABASE_URL', '').strip()
@@ -40,7 +52,7 @@ class MaslaEntry(db.Model):
     volume = db.Column(db.String(50))
     page_number = db.Column(db.Integer)
 
-# Auto-sync correct admin credentials on boot
+# Auto-sync admin credentials on boot
 with app.app_context():
     try:
         db.create_all()
@@ -78,8 +90,47 @@ def login():
 def dashboard():
     if 'admin_id' not in session:
         return redirect(url_for('login'))
+    
     masail = MaslaEntry.query.order_by(MaslaEntry.id.desc()).all()
-    return render_template('dashboard.html', username=session['username'], masail=masail)
+    
+    # Fetch tagged Photos from Cloudinary
+    photos = []
+    videos = []
+    try:
+        p_res = cloudinary.api.resources_by_tag(MADARSA_TAG, resource_type="image", max_results=30)
+        photos = p_res.get('resources', [])
+        
+        v_res = cloudinary.api.resources_by_tag(MADARSA_TAG, resource_type="video", max_results=30)
+        videos = v_res.get('resources', [])
+    except Exception as e:
+        print("Cloudinary fetch error:", e)
+
+    return render_template('dashboard.html', username=session['username'], masail=masail, photos=photos, videos=videos)
+
+@app.route('/gallery/upload', methods=['POST'])
+def upload_gallery():
+    if 'admin_id' not in session:
+        return redirect(url_for('login'))
+    
+    file = request.files.get('media_file')
+    media_type = request.form.get('media_type', 'image') # image or video
+    
+    if not file or file.filename == '':
+        flash('Koi file select nahi ki gayi.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    try:
+        cloudinary.uploader.upload(
+            file,
+            resource_type = media_type,
+            tags = [MADARSA_TAG, "madarsa_portal"],
+            folder = f"madarsa_{MADARSA_TAG}/"
+        )
+        flash('File kamyabi se Cloudinary par 809047 tag ke sath upload ho gayi!', 'success')
+    except Exception as e:
+        flash(f'Upload fail ho gaya: {str(e)}', 'danger')
+        
+    return redirect(url_for('dashboard'))
 
 @app.route('/masla/add', methods=['POST'])
 def add_masla():
