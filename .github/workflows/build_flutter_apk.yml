@@ -28,21 +28,30 @@ jobs:
         run: |
           flutter create . --project-name=madarsa_app --platforms=android --org=com.madarsa.app
 
-      - name: Upgrade AGP and SDK Versions
+      - name: Force Compatible AndroidX Versions
         run: |
-          # 1. compileSdk aur targetSdk 35 update karein
-          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 35/g' android/app/build.gradle
-          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 35/g' android/app/build.gradle 2>/dev/null || true
-          sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 35/g' android/app/build.gradle
-          sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 35/g' android/app/build.gradle 2>/dev/null || true
+          # compileSdk aur targetSdk ko 34 par set karein
+          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle
+          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle 2>/dev/null || true
+          sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/g' android/app/build.gradle
+          sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle 2>/dev/null || true
 
-          # 2. Android Gradle Plugin ko 8.6.0 karein
-          sed -i 's/com.android.tools.build:gradle:7.3.0/com.android.tools.build:gradle:8.6.0/g' android/build.gradle
-          sed -i 's/com.android.tools.build:gradle:7.[0-9].[0-9]/com.android.tools.build:gradle:8.6.0/g' android/build.gradle
+          # Root android/build.gradle me core-ktx ko 1.13.1 par force lock karein
+          cat << 'SUBEOF' >> android/build.gradle
 
-          # 3. Gradle distribution wrapper ko 8.7 karein
-          sed -i 's/gradle-.*-all.zip/gradle-8.7-all.zip/g' android/gradle/wrapper/gradle-wrapper.properties
-          sed -i 's/gradle-.*-bin.zip/gradle-8.7-bin.zip/g' android/gradle/wrapper/gradle-wrapper.properties
+subprojects {
+    project.configurations.all {
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'androidx.core' && !details.requested.name.contains('ktx')) {
+                details.useVersion '1.13.1'
+            }
+            if (details.requested.group == 'androidx.core' && details.requested.name.contains('ktx')) {
+                details.useVersion '1.13.1'
+            }
+        }
+    }
+}
+SUBEOF
 
       - name: Get Dependencies
         run: flutter pub get
