@@ -18,16 +18,43 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Flutter (Latest Stable)
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.29.0'
           channel: 'stable'
 
-      - name: Clean Recreate Android Platform
+      - name: Scaffold Clean Android Platform
         run: |
           rm -rf android
           flutter create . --project-name=madarsa_app --platforms=android --org=com.madarsa.app
+
+      - name: Inject Custom App Icons
+        run: |
+          if [ -f icon.b64 ]; then
+            base64 -d icon.b64 > /tmp/app_icon.png
+            for dir in android/app/src/main/res/mipmap-*; do
+              cp /tmp/app_icon.png "$dir/ic_launcher.png" 2>/dev/null || true
+            done
+            cp /tmp/app_icon.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png 2>/dev/null || true
+          fi
+
+          mkdir -p android/app/src/main/res/mipmap-anydpi-v26
+          cat << 'XML' > android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/ic_launcher_background"/>
+              <foreground android:drawable="@mipmap/ic_launcher"/>
+          </adaptive-icon>
+          XML
+
+          mkdir -p android/app/src/main/res/values
+          cat << 'XML' > android/app/src/main/res/values/colors.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="ic_launcher_background">#FFFFFF</color>
+          </resources>
+          XML
 
       - name: Get Dependencies
         run: flutter pub get
