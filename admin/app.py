@@ -10,8 +10,8 @@ app = Flask(__name__)
 # Security Configs
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'madarsa-secret-key-prod-2026')
 
-# Database URL Handling (Explicit psycopg driver mapping)
-db_url = os.environ.get('DATABASE_URL', '')
+# Database URL
+db_url = os.environ.get('DATABASE_URL', '').strip()
 if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql+psycopg://", 1)
 elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+psycopg://"):
@@ -39,6 +39,23 @@ class MaslaEntry(db.Model):
     book_title = db.Column(db.String(200), nullable=False)
     volume = db.Column(db.String(50))
     page_number = db.Column(db.Integer)
+
+# Auto-sync correct admin credentials on boot
+with app.app_context():
+    try:
+        db.create_all()
+        target_user = "itsmeatifkhan"
+        target_pass = "atif809047"
+        existing = AdminUser.query.filter_by(username=target_user).first()
+        hashed = bcrypt.generate_password_hash(target_pass).decode('utf-8')
+        if existing:
+            existing.password_hash = hashed
+        else:
+            new_admin = AdminUser(username=target_user, password_hash=hashed)
+            db.session.add(new_admin)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
 
 # Routes
 @app.route('/login', methods=['GET', 'POST'])
