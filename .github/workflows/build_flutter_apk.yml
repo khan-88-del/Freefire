@@ -33,6 +33,9 @@ jobs:
         run: |
           flutter pub get
           dart run flutter_launcher_icons
+          # Ensure Manifest explicitly points to generated launcher icons for Package Installer
+          sed -i 's/android:icon="[^"]*"/android:icon="@mipmap\/ic_launcher"/g' android/app/src/main/AndroidManifest.xml
+          sed -i 's/android:roundIcon="[^"]*"/android:roundIcon="@mipmap\/ic_launcher"/g' android/app/src/main/AndroidManifest.xml 2>/dev/null || true
 
       - name: Build Android APK
         run: flutter build apk --release --no-tree-shake-icons
