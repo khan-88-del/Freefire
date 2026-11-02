@@ -28,11 +28,21 @@ jobs:
         run: |
           flutter create . --project-name=madarsa_app --platforms=android --org=com.madarsa.app
 
-      - name: Patch Android SDK 35
+      - name: Upgrade AGP and SDK Versions
         run: |
+          # 1. compileSdk aur targetSdk 35 update karein
           sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 35/g' android/app/build.gradle
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 35/g' android/app/build.gradle 2>/dev/null || true
-          sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/g' android/app/build.gradle
+          sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 35/g' android/app/build.gradle
+          sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 35/g' android/app/build.gradle 2>/dev/null || true
+
+          # 2. Android Gradle Plugin ko 8.6.0 karein
+          sed -i 's/com.android.tools.build:gradle:7.3.0/com.android.tools.build:gradle:8.6.0/g' android/build.gradle
+          sed -i 's/com.android.tools.build:gradle:7.[0-9].[0-9]/com.android.tools.build:gradle:8.6.0/g' android/build.gradle
+
+          # 3. Gradle distribution wrapper ko 8.7 karein
+          sed -i 's/gradle-.*-all.zip/gradle-8.7-all.zip/g' android/gradle/wrapper/gradle-wrapper.properties
+          sed -i 's/gradle-.*-bin.zip/gradle-8.7-bin.zip/g' android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Get Dependencies
         run: flutter pub get
