@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'screens/splash_screen.dart';
 
 void main() {
@@ -23,7 +22,6 @@ class MadarsaApp extends StatelessWidget {
           secondary: const Color(0xFFD4AF37),
           surface: const Color(0xFFF8F9FA),
         ),
-        textTheme: GoogleFonts.amiriTextTheme(Theme.of(context).textTheme),
       ),
       home: const SplashScreen(),
     );
