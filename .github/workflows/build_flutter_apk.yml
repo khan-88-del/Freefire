@@ -28,13 +28,21 @@ jobs:
         run: |
           flutter create . --project-name=madarsa_app --platforms=android --org=com.madarsa.app
 
-      - name: Force Compatible AndroidX Versions
+      - name: Update Kotlin and AndroidX Versions
         run: |
-          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle
-          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle || true
-          sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/g' android/app/build.gradle
-          sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle || true
+          # 1. settings.gradle me Kotlin version ko 1.9.22 karein
+          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22"/g' android/settings.gradle 2>/dev/null || true
 
+          # 2. build.gradle me bhi ext.kotlin_version ko 1.9.22 karein
+          sed -i "s/ext.kotlin_version = .*/ext.kotlin_version = '1.9.22'/g" android/build.gradle 2>/dev/null || true
+
+          # 3. compileSdk aur targetSdk ko 34 par set karein
+          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle
+          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle 2>/dev/null || true
+          sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/g' android/app/build.gradle
+          sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/g' android/app/build.gradle 2>/dev/null || true
+
+          # 4. Dependency locking
           printf "\nsubprojects {\n    project.configurations.all {\n        resolutionStrategy.eachDependency { details ->\n            if (details.requested.group == 'androidx.core') {\n                details.useVersion '1.13.1'\n            }\n        }\n    }\n}\n" >> android/build.gradle
 
       - name: Get Dependencies
