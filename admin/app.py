@@ -8,7 +8,7 @@ from flask_limiter.util import get_remote_address
 app = Flask(__name__)
 
 # Security Configs
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-local-key')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'madarsa-super-secret-key-prod-2026')
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///madarsa.db')
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
@@ -38,30 +38,38 @@ class MaslaEntry(db.Model):
     volume = db.Column(db.String(50))
     page_number = db.Column(db.Integer)
 
-# Secure Auto-Init using Environment Variables
+# Guaranteed Password Sync on Boot
 with app.app_context():
     db.create_all()
-    env_user = os.environ.get('ADMIN_USER')
-    env_pass = os.environ.get('ADMIN_PASS')
+    # Environment variable se uthayega, agar nahi mila toh fallback
+    target_user = (os.environ.get('ADMIN_USER') or 'admin').strip()
+    target_pass = (os.environ.get('ADMIN_PASS') or 'Madarsa@2026').strip()
     
-    if env_user and env_pass:
-        admin_user = AdminUser.query.filter_by(username=env_user).first()
-        if not admin_user:
-            hashed = bcrypt.generate_password_hash(env_pass).decode('utf-8')
-            new_admin = AdminUser(username=env_user, password_hash=hashed)
-            db.session.add(new_admin)
-            db.session.commit()
+    existing = AdminUser.query.filter_by(username=target_user).first()
+    new_hash = bcrypt.generate_password_hash(target_pass).decode('utf-8')
+    
+    if existing:
+        # Force update password hash taaki mismatched password theek ho jaye
+        existing.password_hash = new_hash
+    else:
+        new_admin = AdminUser(username=target_user, password_hash=new_hash)
+        db.session.add(new_admin)
+    db.session.commit()
+    print(f"Verified Admin credentials loaded for: {target_user}")
 
 @app.route('/login', methods=['GET', 'POST'])
-@limiter.limit("10 per minute")
+@limiter.limit("20 per minute")
 def login():
     if request.method == 'POST':
-        user = AdminUser.query.filter_by(username=request.form.get('username')).first()
-        if user and bcrypt.check_password_hash(user.password_hash, request.form.get('password')):
+        uname = (request.form.get('username') or '').strip()
+        pword = (request.form.get('password') or '').strip()
+        
+        user = AdminUser.query.filter_by(username=uname).first()
+        if user and bcrypt.check_password_hash(user.password_hash, pword):
             session['admin_id'] = user.id
             session['username'] = user.username
             return redirect(url_for('dashboard'))
-        flash('Galat credentials! Koshish record ho rahi hai.', 'danger')
+        flash('Galat username ya password! Dobara check karein.', 'danger')
     return render_template('login.html')
 
 @app.route('/')
