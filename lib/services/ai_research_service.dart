@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 class AiResearchService {
   final String backendEndpoint = 'https://api.yourmadarsa.com/search-fiqh';
 
-  Future> queryMasla(String question) async {
+  Future queryMasla(String question) async {
     try {
       final response = await http.post(
         Uri.parse(backendEndpoint),

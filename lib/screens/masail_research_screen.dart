@@ -14,7 +14,7 @@ class _MasailResearchScreenState extends State<MasailResearchScreen> {
   final AiResearchService _aiService = AiResearchService();
 
   bool _isLoading = false;
-  Map? _aiResponse;
+  dynamic _aiResponse;
 
   final List _availableBooks = [
     {
@@ -127,7 +127,7 @@ class _MasailResearchScreenState extends State<MasailResearchScreen> {
                     ),
                     const Divider(),
                     Text(
-                      _aiResponse!['explanation']?.toString() ?? '',
+                      _aiResponse['explanation']?.toString() ?? '',
                       style: const TextStyle(fontSize: 14, height: 1.5),
                     ),
                     const SizedBox(height: 12),
@@ -143,7 +143,7 @@ class _MasailResearchScreenState extends State<MasailResearchScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Daleel: ${_aiResponse!['bookTitle']} (Jild: ${_aiResponse!['volume']}, Safha: ${_aiResponse!['pageNumber']})',
+                              'Daleel: ${_aiResponse['bookTitle']} (Jild: ${_aiResponse['volume']}, Safha: ${_aiResponse['pageNumber']})',
                               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                             ),
                           ),
@@ -164,9 +164,9 @@ class _MasailResearchScreenState extends State<MasailResearchScreen> {
                           context,
                           MaterialPageRoute(
                             builder: (_) => PdfReaderScreen(
-                              pdfUrl: _aiResponse!['pdfUrl']?.toString() ?? '',
-                              initialPage: int.tryParse(_aiResponse!['pageNumber']?.toString() ?? '1') ?? 1,
-                              bookTitle: _aiResponse!['bookTitle']?.toString() ?? '',
+                              pdfUrl: _aiResponse['pdfUrl']?.toString() ?? '',
+                              initialPage: int.tryParse(_aiResponse['pageNumber']?.toString() ?? '1') ?? 1,
+                              bookTitle: _aiResponse['bookTitle']?.toString() ?? '',
                             ),
                           ),
                         );
@@ -184,7 +184,7 @@ class _MasailResearchScreenState extends State<MasailResearchScreen> {
             const SizedBox(height: 8),
             ListView.builder(
               shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics),
+              physics: const NeverScrollableScrollPhysics(),
               itemCount: _availableBooks.length,
               itemBuilder: (context, index) {
                 final b = _availableBooks[index];
