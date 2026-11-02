@@ -14,9 +14,9 @@ class _MasailResearchScreenState extends State<MasailResearchScreen> {
   final AiResearchService _aiService = AiResearchService();
 
   bool _isLoading = false;
-  Map<String, dynamic>? _aiResponse;
+  Map? _aiResponse;
 
-  final List> _availableBooks = [
+  final List _availableBooks = [
     {
       'title': 'Radd al-Muhtar (Fatawa Shami)',
       'author': 'Allama Ibn Abidin',
@@ -127,7 +127,7 @@ class _MasailResearchScreenState extends State<MasailResearchScreen> {
                     ),
                     const Divider(),
                     Text(
-                      _aiResponse!['explanation'] ?? '',
+                      _aiResponse!['explanation']?.toString() ?? '',
                       style: const TextStyle(fontSize: 14, height: 1.5),
                     ),
                     const SizedBox(height: 12),
@@ -164,9 +164,9 @@ class _MasailResearchScreenState extends State<MasailResearchScreen> {
                           context,
                           MaterialPageRoute(
                             builder: (_) => PdfReaderScreen(
-                              pdfUrl: _aiResponse!['pdfUrl'],
-                              initialPage: _aiResponse!['pageNumber'],
-                              bookTitle: _aiResponse!['bookTitle'],
+                              pdfUrl: _aiResponse!['pdfUrl']?.toString() ?? '',
+                              initialPage: int.tryParse(_aiResponse!['pageNumber']?.toString() ?? '1') ?? 1,
+                              bookTitle: _aiResponse!['bookTitle']?.toString() ?? '',
                             ),
                           ),
                         );
@@ -184,7 +184,7 @@ class _MasailResearchScreenState extends State<MasailResearchScreen> {
             const SizedBox(height: 8),
             ListView.builder(
               shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
+              physics: const NeverScrollableScrollPhysics),
               itemCount: _availableBooks.length,
               itemBuilder: (context, index) {
                 final b = _availableBooks[index];
@@ -193,17 +193,17 @@ class _MasailResearchScreenState extends State<MasailResearchScreen> {
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
                     leading: const Icon(Icons.picture_as_pdf, color: Colors.redAccent),
-                    title: Text(b['title']!, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(b['author']!),
+                    title: Text(b['title']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(b['author']?.toString() ?? ''),
                     trailing: const Text('Read', style: TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold)),
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => PdfReaderScreen(
-                            pdfUrl: b['pdfUrl']!,
+                            pdfUrl: b['pdfUrl']?.toString() ?? '',
                             initialPage: 1,
-                            bookTitle: b['title']!,
+                            bookTitle: b['title']?.toString() ?? '',
                           ),
                         ),
                       );
