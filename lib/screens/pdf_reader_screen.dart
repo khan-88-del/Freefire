@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
-class PdfReaderScreen extends StatelessWidget {
+class PdfReaderScreen extends StatefulWidget {
   final String pdfUrl;
   final int initialPage;
   final String bookTitle;
@@ -13,39 +14,49 @@ class PdfReaderScreen extends StatelessWidget {
   });
 
   @override
+  State<PdfReaderScreen> createState() => _PdfReaderScreenState();
+}
+
+class _PdfReaderScreenState extends State<PdfReaderScreen> {
+  late PdfViewerController _pdfViewerController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pdfViewerController = PdfViewerController();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('$bookTitle (Safha: $initialPage)', style: const TextStyle(color: Colors.white, fontSize: 16)),
+        title: Text('${widget.bookTitle} (Safha: ${widget.initialPage})', style: const TextStyle(color: Colors.white, fontSize: 16)),
         backgroundColor: const Color(0xFF0F5132),
       ),
-      body: Center(
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              color: const Color(0xFFD4AF37).withOpacity(0.2),
-              child: Text(
-                'AI Verified Daleel Page: Safha $initialPage',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+      body: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            color: const Color(0xFFD4AF37).withOpacity(0.2),
+            child: Text(
+              'AI Verified Daleel Page: Safha ${widget.initialPage}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            Expanded(
-              child: Container(
-                color: Colors.grey[100],
-                alignment: Alignment.center,
-                padding: const EdgeInsets.all(20),
-                child: Text(
-                  'Book Reader View: Safha $initialPage\nResource: $pdfUrl',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16, color: Colors.black87),
-                ),
-              ),
+          ),
+          Expanded(
+            child: SfPdfViewer.network(
+              widget.pdfUrl,
+              controller: _pdfViewerController,
+              onDocumentLoaded: (PdfDocumentLoadedDetails details) {
+                if (widget.initialPage > 0) {
+                  _pdfViewerController.jumpToPage(widget.initialPage);
+                }
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
