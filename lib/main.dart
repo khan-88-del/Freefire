@@ -277,17 +277,26 @@ class SafeHomeScreen extends StatelessWidget {
 
   static Widget _buildTile(IconData icon, String title, String subtitle) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 1.5,
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 1.8,
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: const Color(0xFF0F5132).withOpacity(0.12),
-          child: Icon(icon, color: const Color(0xFF0F5132)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        leading: Container(
+          width: 54,
+          height: 54,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F5132).withOpacity(0.12),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, color: const Color(0xFF0F5132), size: 28),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4.0),
+          child: Text(subtitle, style: const TextStyle(fontSize: 13.5)),
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 18),
         onTap: () {},
       ),
     );
