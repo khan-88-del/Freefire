@@ -181,7 +181,7 @@ class SafeHomeScreen extends StatelessWidget {
           padding: const EdgeInsets.all(16.0),
           children: [
                         Container(
-              height: 175,
+              height: 170,
               width: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(4),
@@ -197,7 +197,7 @@ class SafeHomeScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(4),
                 child: Image.asset(
                   'assets/icons/jamiasamdiya.png',
-                  fit: BoxFit.cover,
+                  fit: BoxFit.fill,
                   width: double.infinity,
                   errorBuilder: (context, error, stackTrace) => Container(
                     color: const Color(0xFF0F5132),
