@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
+
+const String BASE_API_URL = "https://app-itb0.onrender.com";
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -203,6 +206,7 @@ class SafeHomeScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
+            // Gallery
             Card(
               margin: const EdgeInsets.only(bottom: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -229,7 +233,33 @@ class SafeHomeScreen extends StatelessWidget {
                 },
               ),
             ),
-            _buildTile(Icons.library_books, 'Curriculum & Books', 'Explore syllabus and study books'),
+            // Syllabus Darse Nizami Tile
+            Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 2,
+              color: const Color(0xFFFFF9E6),
+              child: ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFB78103),
+                  child: Icon(Icons.auto_stories, color: Colors.white),
+                ),
+                title: const Text(
+                  'Syllabus Darse Nizami',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFB78103)),
+                ),
+                subtitle: const Text('Classes & syllabus PDF documents'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFFB78103)),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SyllabusClassesScreen(),
+                    ),
+                  );
+                },
+              ),
+            ),
             _buildTile(Icons.list_alt, 'Rules & Regulations', 'Academic guidelines and policies'),
             _buildTile(Icons.info_outline, 'About Institution', 'Contact details and overview'),
           ],
@@ -256,6 +286,419 @@ class SafeHomeScreen extends StatelessWidget {
     );
   }
 }
+
+// ================== SYLLABUS SCREENS ==================
+
+class SyllabusClassesScreen extends StatefulWidget {
+  const SyllabusClassesScreen({super.key});
+
+  @override
+  State<SyllabusClassesScreen> createState() => _SyllabusClassesScreenState();
+}
+
+class _SyllabusClassesScreenState extends State<SyllabusClassesScreen> {
+  bool _loading = true;
+  String? _error;
+  List _classes = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchClasses();
+  }
+
+  Future<void> _fetchClasses() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final response = await http
+          .get(Uri.parse('$BASE_API_URL/api/syllabus/classes'))
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          setState(() {
+            _classes = data['classes'] ?? [];
+            _loading = false;
+          });
+          return;
+        }
+      }
+      setState(() {
+        _error = 'Could not load classes';
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Internet connection error';
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Syllabus Darse Nizami', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF0F5132),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0F5132)))
+          : _error != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(_error!, style: const TextStyle(color: Colors.black54)),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        onPressed: _fetchClasses,
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F5132)),
+                        child: const Text('Retry', style: TextStyle(color: Colors.white)),
+                      )
+                    ],
+                  ),
+                )
+              : _classes.isEmpty
+                  ? const Center(child: Text('Abhi tak koi class upload nahi hui hai.'))
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(14),
+                      itemCount: _classes.length,
+                      itemBuilder: (context, index) {
+                        final c = _classes[index];
+                        return Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            leading: const CircleAvatar(
+                              backgroundColor: Color(0xFF0F5132),
+                              child: Icon(Icons.folder, color: Colors.white),
+                            ),
+                            title: Text(
+                              c['name'] ?? '',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            subtitle: Text('${c['pdf_count'] ?? 0} PDF(s) available'),
+                            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ClassPdfsScreen(
+                                    classId: c['id'],
+                                    className: c['name'],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+    );
+  }
+}
+
+class ClassPdfsScreen extends StatefulWidget {
+  final int classId;
+  final String className;
+  const ClassPdfsScreen({super.key, required this.classId, required this.className});
+
+  @override
+  State<ClassPdfsScreen> createState() => _ClassPdfsScreenState();
+}
+
+class _ClassPdfsScreenState extends State<ClassPdfsScreen> {
+  bool _loading = true;
+  String? _error;
+  List _pdfs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPdfs();
+  }
+
+  Future<void> _fetchPdfs() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final response = await http
+          .get(Uri.parse('$BASE_API_URL/api/syllabus/class/${widget.classId}/pdfs'))
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          setState(() {
+            _pdfs = data['pdfs'] ?? [];
+            _loading = false;
+          });
+          return;
+        }
+      }
+      setState(() {
+        _error = 'Could not load syllabus files';
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Check internet connection';
+        _loading = false;
+      });
+    }
+  }
+
+  void _downloadFileWithProgress(String url, String title) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        double progress = 0.0;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            _startDownload(url, title, (p) {
+              setDialogState(() {
+                progress = p;
+              });
+            }, () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('$title Downloaded in phone Download folder!')),
+              );
+            }, (err) {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Download Error: $err')),
+              );
+            });
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Text('Downloading $title'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LinearProgressIndicator(
+                    value: progress > 0 ? progress : null,
+                    backgroundColor: Colors.black12,
+                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0F5132)),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('${(progress * 100).toStringAsFixed(0)}% Completed'),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _startDownload(
+    String url,
+    String title,
+    Function(double) onProgress,
+    VoidCallback onSuccess,
+    Function(String) onError,
+  ) async {
+    try {
+      final client = http.Client();
+      final request = http.Request('GET', Uri.parse(url));
+      final response = await client.send(request);
+
+      final total = response.contentLength ?? 0;
+      int received = 0;
+      List<int> bytes = [];
+
+      response.stream.listen(
+        (chunk) {
+          bytes.addAll(chunk);
+          received += chunk.length;
+          if (total > 0) {
+            onProgress(received / total);
+          }
+        },
+        onDone: () async {
+          try {
+            final cleanName = title.replaceAll(RegExp(r'[^\w\s\.-]'), '_');
+            final fileName = cleanName.endsWith('.pdf') ? cleanName : '$cleanName.pdf';
+            final downloadDir = Directory('/storage/emulated/0/Download');
+            if (!downloadDir.existsSync()) {
+              downloadDir.createSync(recursive: true);
+            }
+            final file = File('${downloadDir.path}/$fileName');
+            await file.writeAsBytes(bytes);
+            onSuccess();
+          } catch (e) {
+            onError(e.toString());
+          }
+        },
+        onError: (e) {
+          onError(e.toString());
+        },
+        cancelOnError: true,
+      );
+    } catch (e) {
+      onError(e.toString());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.className, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF0F5132),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0F5132)))
+          : _error != null
+              ? Center(child: Text(_error!))
+              : _pdfs.isEmpty
+                  ? const Center(child: Text('Is class me koi PDF file nahi mili.'))
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: _pdfs.length,
+                      itemBuilder: (context, index) {
+                        final p = _pdfs[index];
+                        final String title = p['title'] ?? 'Syllabus PDF';
+                        final String fileUrl = p['file_url'] ?? '';
+
+                        return Card(
+                          elevation: 1.5,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.picture_as_pdf, color: Colors.red, size: 36),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            title,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Uploaded: ${p['uploaded_at']}',
+                                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 20),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    OutlinedButton.icon(
+                                      icon: const Icon(Icons.visibility, size: 16),
+                                      label: const Text('Open'),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(0xFF0F5132),
+                                      ),
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => PdfWebPreview(url: fileUrl, title: title),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(width: 10),
+                                    ElevatedButton.icon(
+                                      icon: const Icon(Icons.download, size: 16),
+                                      label: const Text('Download'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF0F5132),
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      onPressed: () {
+                                        _downloadFileWithProgress(fileUrl, title);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+    );
+  }
+}
+
+class PdfWebPreview extends StatelessWidget {
+  final String url;
+  final String title;
+  const PdfWebPreview({super.key, required this.url, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title, style: const TextStyle(color: Colors.white)),
+        backgroundColor: const Color(0xFF0F5132),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.picture_as_pdf, size: 72, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F5132),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('View Document Online'),
+                onPressed: () {
+                  // Direct cloud view
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ================== GALLERY SCREEN ==================
 
 class GallerySwipeScreen extends StatelessWidget {
   const GallerySwipeScreen({super.key});
@@ -440,22 +883,8 @@ class _MediaTabContentState extends State<MediaTabContent> {
     }
 
     if (_allMedia.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              widget.resourceType == 'image' ? Icons.photo_library_outlined : Icons.video_library_outlined,
-              size: 56,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'No items available yet',
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-            ),
-          ],
-        ),
+      return const Center(
+        child: Text('No items available yet', style: TextStyle(color: Colors.grey)),
       );
     }
 
@@ -570,7 +999,6 @@ class _MediaTabContentState extends State<MediaTabContent> {
   }
 }
 
-// WhatsApp style fast ExoPlayer view
 class WhatsAppStylePlayerScreen extends StatefulWidget {
   final String videoUrl;
   const WhatsAppStylePlayerScreen({super.key, required this.videoUrl});

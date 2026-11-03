@@ -327,3 +327,35 @@ def logout():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
+# ================== MOBILE APP API ROUTES ==================
+@app.route('/api/syllabus/classes', methods=['GET'])
+def api_syllabus_classes():
+    classes = SyllabusClass.query.order_by(SyllabusClass.id.asc()).all()
+    res = []
+    for c in classes:
+        res.append({
+            'id': c.id,
+            'name': c.name,
+            'pdf_count': len(c.pdfs)
+        })
+    return jsonify({'success': True, 'classes': res})
+
+@app.route('/api/syllabus/class/<int:class_id>/pdfs', methods=['GET'])
+def api_class_pdfs(class_id):
+    s_class = SyllabusClass.query.get(class_id)
+    if not s_class:
+        return jsonify({'success': False, 'error': 'Class not found'}), 404
+    pdfs = []
+    for p in s_class.pdfs:
+        pdfs.append({
+            'id': p.id,
+            'title': p.title,
+            'file_url': p.file_url,
+            'uploaded_at': p.uploaded_at.strftime('%d-%b-%Y') if p.uploaded_at else ''
+        })
+    return jsonify({
+        'success': True,
+        'class_name': s_class.name,
+        'pdfs': pdfs
+    })
