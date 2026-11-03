@@ -44,6 +44,11 @@ jobs:
           done
 
       - name: Build Android APK
+      - name: Setup App Icons
+        run: |
+          flutter pub get
+          flutter pub run flutter_launcher_icons
+
         run: flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
