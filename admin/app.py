@@ -181,19 +181,23 @@ def add_masla():
     flash('Masla record mehfooz kar liya gaya hai.', 'success')
     return redirect(url_for('dashboard'))
 
-# Helper function to upload PDF properly with .pdf extension
+# Public Direct Access Upload Function
 def upload_pdf_file(pdf_file, title):
     clean_title = "".join(c for c in title if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
-    custom_public_id = f"madarsa_{MADARSA_TAG}/syllabus/{clean_title}_{int(time.time())}.pdf"
+    custom_public_id = f"madarsa_{MADARSA_TAG}/syllabus/{clean_title}_{int(time.time())}"
     
     res = cloudinary.uploader.upload(
         pdf_file,
         public_id=custom_public_id,
-        resource_type="raw",
-        use_filename=True,
-        unique_filename=False
+        resource_type="image",
+        format="pdf",
+        type="upload",
+        access_mode="public"
     )
-    return res.get('secure_url'), res.get('public_id')
+    url = res.get('secure_url')
+    if not url.endswith('.pdf'):
+        url = url + '.pdf'
+    return url, res.get('public_id')
 
 @app.route('/syllabus/create-class', methods=['GET', 'POST'])
 def create_class():
@@ -290,6 +294,8 @@ def delete_pdf(pdf_id):
     pdf = SyllabusPDF.query.get_or_404(pdf_id)
     class_id = pdf.class_id
     try:
+        # Try image type first, fallback raw
+        cloudinary.uploader.destroy(pdf.public_id, resource_type="image")
         cloudinary.uploader.destroy(pdf.public_id, resource_type="raw")
     except Exception:
         pass
