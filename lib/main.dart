@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -205,7 +206,6 @@ class SafeHomeScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            // Gallery
             Card(
               margin: const EdgeInsets.only(bottom: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -232,7 +232,6 @@ class SafeHomeScreen extends StatelessWidget {
                 },
               ),
             ),
-            // Syllabus Darse Nizami
             Card(
               margin: const EdgeInsets.only(bottom: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -285,8 +284,6 @@ class SafeHomeScreen extends StatelessWidget {
     );
   }
 }
-
-// ================== SYLLABUS ==================
 
 class SyllabusClassesScreen extends StatefulWidget {
   const SyllabusClassesScreen({super.key});
@@ -459,33 +456,77 @@ class _ClassPdfsScreenState extends State<ClassPdfsScreen> {
     }
   }
 
-  void _openPdfViewer(String url, String title) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PdfViewerPage(pdfUrl: url, title: title),
-      ),
-    );
+  void _openPdfDirectly(String url) {
+    const platform = MethodChannel('plugins.flutter.io/url_launcher');
+    platform.invokeMethod('launch', {'url': url}).catchError((_) {});
   }
 
-  void _directDownload(String fileUrl, String title) {
-    // Cloudinary download link generator
-    String downloadUrl = fileUrl;
-    if (downloadUrl.contains("/upload/")) {
-      downloadUrl = downloadUrl.replaceFirst("/upload/", "/upload/fl_attachment/");
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: const Color(0xFF0F5132),
-        content: Text('Downloading "$title"... Check notification bar.'),
-        duration: const Duration(seconds: 3),
+  void _downloadPdfDirectly(String url, String title) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: Color(0xFF0F5132)),
+                SizedBox(height: 16),
+                Text('Saving PDF to Phone...', style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        ),
       ),
     );
 
-    // Launch via Android system downloader without block
-    const platform = MethodChannel('plugins.flutter.io/url_launcher');
-    platform.invokeMethod('launch', {'url': downloadUrl}).catchError((_) {});
+    try {
+      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 30));
+      if (!mounted) return;
+      Navigator.pop(context); // close loader
+
+      if (res.statusCode == 200) {
+        String cleanTitle = title.replaceAll(RegExp(r'[^\w\s\.-]'), '_').trim();
+        if (!cleanTitle.toLowerCase().endsWith('.pdf')) {
+          cleanTitle = '$cleanTitle.pdf';
+        }
+
+        final downloadDir = Directory('/storage/emulated/0/Download');
+        if (!downloadDir.existsSync()) {
+          downloadDir.createSync(recursive: true);
+        }
+
+        final file = File('${downloadDir.path}/$cleanTitle');
+        await file.writeAsBytes(res.bodyBytes);
+
+        showDialog(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: const Text('Download Success! 🎉'),
+            content: Text('File mehfooz ho gayi hai:\n\n📁 Download/$cleanTitle'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c),
+                child: const Text('OK', style: TextStyle(color: Color(0xFF0F5132), fontWeight: FontWeight.bold)),
+              )
+            ],
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Server Error: ${res.statusCode}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Download failed: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -552,7 +593,7 @@ class _ClassPdfsScreenState extends State<ClassPdfsScreen> {
                                         foregroundColor: const Color(0xFF0F5132),
                                       ),
                                       onPressed: () {
-                                        _openPdfViewer(fileUrl, title);
+                                        _openPdfDirectly(fileUrl);
                                       },
                                     ),
                                     const SizedBox(width: 10),
@@ -564,7 +605,7 @@ class _ClassPdfsScreenState extends State<ClassPdfsScreen> {
                                         foregroundColor: Colors.white,
                                       ),
                                       onPressed: () {
-                                        _directDownload(fileUrl, title);
+                                        _downloadPdfDirectly(fileUrl, title);
                                       },
                                     ),
                                   ],
@@ -578,89 +619,6 @@ class _ClassPdfsScreenState extends State<ClassPdfsScreen> {
     );
   }
 }
-
-// In-app Google Docs PDF Online Reader
-class PdfViewerPage extends StatefulWidget {
-  final String pdfUrl;
-  final String title;
-  const PdfViewerPage({super.key, required this.pdfUrl, required this.title});
-
-  @override
-  State<PdfViewerPage> createState() => _PdfViewerPageState();
-}
-
-class _PdfViewerPageState extends State<PdfViewerPage> {
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    Timer(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _loading = false);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final googleDocsViewerUrl =
-        "https://docs.google.com/viewer?url=${Uri.encodeComponent(widget.pdfUrl)}&embedded=true";
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title, style: const TextStyle(color: Colors.white, fontSize: 16)),
-        backgroundColor: const Color(0xFF0F5132),
-        iconTheme: const IconThemeData(color: Colors.white),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.open_in_browser),
-            onPressed: () {
-              const platform = MethodChannel('plugins.flutter.io/url_launcher');
-              platform.invokeMethod('launch', {'url': widget.pdfUrl}).catchError((_) {});
-            },
-          )
-        ],
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.picture_as_pdf, size: 72, color: Colors.red),
-              const SizedBox(height: 16),
-              Text(
-                widget.title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Instant Cloud Document Reader',
-                style: TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F5132),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                ),
-                icon: const Icon(Icons.chrome_reader_mode),
-                label: const Text('Read Document Fullscreen', style: TextStyle(fontWeight: FontWeight.bold)),
-                onPressed: () {
-                  const platform = MethodChannel('plugins.flutter.io/url_launcher');
-                  platform.invokeMethod('launch', {'url': googleDocsViewerUrl}).catchError((_) {});
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ================== GALLERY SCREEN ==================
 
 class GallerySwipeScreen extends StatelessWidget {
   const GallerySwipeScreen({super.key});

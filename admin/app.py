@@ -13,10 +13,8 @@ import cloudinary.utils
 
 app = Flask(__name__)
 
-# Security Configs
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'madarsa-secret-key-prod-2026')
 
-# Cloudinary Configuration
 CLOUD_NAME = "zufwpc7e"
 API_KEY = "388794978456266"
 API_SECRET = "8PSkiOY-CtKiRECNldZz_Y6v2-A"
@@ -29,7 +27,6 @@ cloudinary.config(
     secure = True
 )
 
-# Database URL
 db_url = os.environ.get('DATABASE_URL', '').strip()
 if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql+psycopg://", 1)
@@ -43,7 +40,6 @@ db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 limiter = Limiter(get_remote_address, app=app, default_limits=["200 per day", "50 per hour"])
 
-# Models
 class AdminUser(db.Model):
     __tablename__ = 'admin_users'
     id = db.Column(db.Integer, primary_key=True)
@@ -59,7 +55,6 @@ class MaslaEntry(db.Model):
     volume = db.Column(db.String(50))
     page_number = db.Column(db.Integer)
 
-# Syllabus Models
 class SyllabusClass(db.Model):
     __tablename__ = 'syllabus_classes'
     id = db.Column(db.Integer, primary_key=True)
@@ -76,7 +71,6 @@ class SyllabusPDF(db.Model):
     public_id = db.Column(db.String(200), nullable=False)
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-# Auto-sync admin credentials on boot
 with app.app_context():
     try:
         db.create_all()
@@ -93,7 +87,6 @@ with app.app_context():
     except Exception as e:
         db.session.rollback()
 
-# Routes
 @app.route('/login', methods=['GET', 'POST'])
 @limiter.limit("10 per minute")
 def login():
@@ -123,7 +116,6 @@ def dashboard():
     try:
         p_res = cloudinary.api.resources_by_tag(MADARSA_TAG, resource_type="image", max_results=50)
         photos = p_res.get('resources', [])
-
         v_res = cloudinary.api.resources_by_tag(MADARSA_TAG, resource_type="video", max_results=50)
         videos = v_res.get('resources', [])
     except Exception as e:
@@ -138,7 +130,6 @@ def dashboard():
                            cloud_name=CLOUD_NAME,
                            api_key=API_KEY)
 
-# Direct Upload Signature API
 @app.route('/gallery/signature', methods=['POST'])
 def generate_signature():
     if 'admin_id' not in session:
@@ -147,13 +138,7 @@ def generate_signature():
     timestamp = int(time.time())
     folder = f"madarsa_{MADARSA_TAG}"
     tags = f"{MADARSA_TAG},madarsa_portal"
-
-    params_to_sign = {
-        'folder': folder,
-        'tags': tags,
-        'timestamp': timestamp
-    }
-
+    params_to_sign = {'folder': folder, 'tags': tags, 'timestamp': timestamp}
     signature = cloudinary.utils.api_sign_request(params_to_sign, API_SECRET)
 
     return jsonify({
@@ -165,7 +150,6 @@ def generate_signature():
         'tags': tags
     })
 
-# Delete Media Route
 @app.route('/gallery/delete', methods=['POST'])
 def delete_media():
     if 'admin_id' not in session:
@@ -173,7 +157,6 @@ def delete_media():
 
     public_id = request.form.get('public_id')
     resource_type = request.form.get('resource_type', 'image')
-
     if public_id:
         try:
             cloudinary.uploader.destroy(public_id, resource_type=resource_type)
@@ -198,9 +181,20 @@ def add_masla():
     flash('Masla record mehfooz kar liya gaya hai.', 'success')
     return redirect(url_for('dashboard'))
 
-# ================== SYLLABUS ROUTES ==================
+# Helper function to upload PDF properly with .pdf extension
+def upload_pdf_file(pdf_file, title):
+    clean_title = "".join(c for c in title if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+    custom_public_id = f"madarsa_{MADARSA_TAG}/syllabus/{clean_title}_{int(time.time())}.pdf"
+    
+    res = cloudinary.uploader.upload(
+        pdf_file,
+        public_id=custom_public_id,
+        resource_type="raw",
+        use_filename=True,
+        unique_filename=False
+    )
+    return res.get('secure_url'), res.get('public_id')
 
-# 1. Create Class (Form & Action)
 @app.route('/syllabus/create-class', methods=['GET', 'POST'])
 def create_class():
     if 'admin_id' not in session:
@@ -224,20 +218,15 @@ def create_class():
         db.session.add(new_class)
         db.session.commit()
 
-        # Optional initial PDF upload
         if pdf_file and pdf_file.filename != '':
             try:
-                res = cloudinary.uploader.upload(
-                    pdf_file,
-                    folder=f"madarsa_{MADARSA_TAG}/syllabus",
-                    resource_type="raw"
-                )
                 title = pdf_title if pdf_title else pdf_file.filename
+                secure_url, pub_id = upload_pdf_file(pdf_file, title)
                 new_pdf = SyllabusPDF(
                     class_id=new_class.id,
                     title=title,
-                    file_url=res.get('secure_url'),
-                    public_id=res.get('public_id')
+                    file_url=secure_url,
+                    public_id=pub_id
                 )
                 db.session.add(new_pdf)
                 db.session.commit()
@@ -249,25 +238,20 @@ def create_class():
 
     return render_template('create_class.html')
 
-# 2. Uploaded Syllabus (Classes List)
 @app.route('/syllabus/classes')
 def view_syllabus_classes():
     if 'admin_id' not in session:
         return redirect(url_for('login'))
-
     classes = SyllabusClass.query.order_by(SyllabusClass.id.asc()).all()
     return render_template('syllabus_classes.html', classes=classes)
 
-# 3. Class Detail (PDFs list + add + delete)
 @app.route('/syllabus/class/<int:class_id>')
 def class_detail(class_id):
     if 'admin_id' not in session:
         return redirect(url_for('login'))
-
     s_class = SyllabusClass.query.get_or_404(class_id)
     return render_template('class_detail.html', s_class=s_class)
 
-# 4. Add PDF to specific class
 @app.route('/syllabus/class/<int:class_id>/add-pdf', methods=['POST'])
 def add_pdf_to_class(class_id):
     if 'admin_id' not in session:
@@ -282,17 +266,13 @@ def add_pdf_to_class(class_id):
         return redirect(url_for('class_detail', class_id=class_id))
 
     try:
-        res = cloudinary.uploader.upload(
-            pdf_file,
-            folder=f"madarsa_{MADARSA_TAG}/syllabus",
-            resource_type="raw"
-        )
         title = pdf_title if pdf_title else pdf_file.filename
+        secure_url, pub_id = upload_pdf_file(pdf_file, title)
         new_pdf = SyllabusPDF(
             class_id=s_class.id,
             title=title,
-            file_url=res.get('secure_url'),
-            public_id=res.get('public_id')
+            file_url=secure_url,
+            public_id=pub_id
         )
         db.session.add(new_pdf)
         db.session.commit()
@@ -302,7 +282,6 @@ def add_pdf_to_class(class_id):
 
     return redirect(url_for('class_detail', class_id=class_id))
 
-# 5. Delete PDF
 @app.route('/syllabus/pdf/<int:pdf_id>/delete', methods=['POST'])
 def delete_pdf(pdf_id):
     if 'admin_id' not in session:
@@ -320,15 +299,6 @@ def delete_pdf(pdf_id):
     flash('PDF delete kar di gayi.', 'success')
     return redirect(url_for('class_detail', class_id=class_id))
 
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('login'))
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
-
-# ================== MOBILE APP API ROUTES ==================
 @app.route('/api/syllabus/classes', methods=['GET'])
 def api_syllabus_classes():
     classes = SyllabusClass.query.order_by(SyllabusClass.id.asc()).all()
@@ -359,3 +329,11 @@ def api_class_pdfs(class_id):
         'class_name': s_class.name,
         'pdfs': pdfs
     })
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
