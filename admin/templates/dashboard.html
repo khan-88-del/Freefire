@@ -80,7 +80,7 @@
       {% endif %}
     {% endwith %}
 
-    <!-- 1. Media Gallery Section (Upload + View Photos/Videos) -->
+    <!-- 1. Media Gallery Section (Bulk Upload up to 15+ files) -->
     <div class="portal-card">
         <h5 class="fw-bold text-warning mb-1"><i class="bi bi-images me-2"></i>Madarsa Media Gallery</h5>
         <small class="text-white-50">Cloudinary Direct Upload with Realtime Progress</small>
@@ -88,15 +88,16 @@
             <span class="badge bg-info text-dark">Tag: {{ MADARSA_TAG if MADARSA_TAG else '809047' }}</span>
         </div>
 
-        <!-- Direct Upload Action -->
+        <!-- Direct Bulk Upload Action -->
         <div class="my-3 p-3 rounded" style="background-color: #0e1935; border: 1px dashed #283e72;">
             <div class="d-flex justify-content-between align-items-center">
                 <label for="mediaFileInput" class="btn btn-warning btn-sm fw-bold mb-0" style="cursor: pointer;">
-                    <i class="bi bi-cloud-arrow-up-fill me-1"></i> Direct Upload Media
+                    <i class="bi bi-cloud-arrow-up-fill me-1"></i> Upload Photos / Videos (Multi-select)
                 </label>
-                <span id="uploadStatusText" class="small text-white-50">Photo ya Video select karein</span>
+                <span id="uploadStatusText" class="small text-white-50">Ek saath 15+ files chunein</span>
             </div>
-            <input type="file" id="mediaFileInput" accept="image/*,video/*" style="display: none;" onchange="uploadSelectedMedia(this)">
+            <!-- 'multiple' attribute allows selecting multiple images/videos at once -->
+            <input type="file" id="mediaFileInput" accept="image/*,video/*" multiple style="display: none;" onchange="uploadMultipleMedia(this)">
             
             <div id="uploadProgressContainer" class="mt-2" style="display: none;">
                 <div class="progress" style="height: 10px; background-color: #1a2c5b;">
@@ -104,7 +105,7 @@
                 </div>
                 <div class="d-flex justify-content-between small text-white-50 mt-1">
                     <span id="uploadPercent">0%</span>
-                    <span>Uploading...</span>
+                    <span id="uploadFileCount">0 / 0</span>
                 </div>
             </div>
         </div>
@@ -217,27 +218,12 @@ function switchMediaTab(tab) {
     }
 }
 
-async function uploadSelectedMedia(input) {
-    if (!input.files || input.files.length === 0) return;
-    const file = input.files[0];
-    const isVideo = file.type.startsWith('video');
-    const resourceType = isVideo ? 'video' : 'image';
+// Single file upload promise function
+function uploadSingleFile(file, sigData) {
+    return new Promise((resolve, reject) => {
+        const isVideo = file.type.startsWith('video');
+        const resourceType = isVideo ? 'video' : 'image';
 
-    const statusText = document.getElementById('uploadStatusText');
-    const progressBox = document.getElementById('uploadProgressContainer');
-    const progressBar = document.getElementById('uploadProgressBar');
-    const progressPercent = document.getElementById('uploadPercent');
-
-    statusText.innerText = 'Getting signature...';
-    progressBox.style.display = 'block';
-
-    try {
-        // 1. Get upload signature from Flask
-        const sigRes = await fetch('/gallery/signature', { method: 'POST' });
-        if (!sigRes.ok) throw new Error('Authentication error');
-        const sigData = await sigRes.json();
-
-        // 2. Prepare upload payload to Cloudinary
         const formData = new FormData();
         formData.append('file', file);
         formData.append('api_key', sigData.api_key);
@@ -249,37 +235,66 @@ async function uploadSelectedMedia(input) {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', `https://api.cloudinary.com/v1_1/${sigData.cloud_name}/${resourceType}/upload`);
 
-        xhr.upload.onprogress = function(e) {
-            if (e.lengthComputable) {
-                const percent = Math.round((e.loaded / e.total) * 100);
-                progressBar.style.width = percent + '%';
-                progressPercent.innerText = percent + '%';
-                statusText.innerText = `Uploading ${resourceType}... (${percent}%)`;
-            }
-        };
-
         xhr.onload = function() {
             if (xhr.status === 200) {
-                statusText.innerText = 'Upload successful! Refreshing...';
-                setTimeout(() => window.location.reload(), 1000);
+                resolve();
             } else {
-                alert('Upload fail ho gaya: ' + xhr.responseText);
-                progressBox.style.display = 'none';
-                statusText.innerText = 'Upload failed';
+                reject(new Error(xhr.responseText));
             }
         };
 
         xhr.onerror = function() {
-            alert('Network error during upload');
-            progressBox.style.display = 'none';
-            statusText.innerText = 'Network error';
+            reject(new Error('Network Error'));
         };
 
         xhr.send(formData);
+    });
+}
+
+// Bulk upload function for 15+ files sequentially
+async function uploadMultipleMedia(input) {
+    if (!input.files || input.files.length === 0) return;
+    const files = Array.from(input.files);
+    const totalFiles = files.length;
+
+    const statusText = document.getElementById('uploadStatusText');
+    const progressBox = document.getElementById('uploadProgressContainer');
+    const progressBar = document.getElementById('uploadProgressBar');
+    const progressPercent = document.getElementById('uploadPercent');
+    const fileCountText = document.getElementById('uploadFileCount');
+
+    progressBox.style.display = 'block';
+    statusText.innerText = 'Getting upload signature...';
+
+    try {
+        let uploadedCount = 0;
+
+        for (let i = 0; i < totalFiles; i++) {
+            const currentFile = files[i];
+            
+            // Fresh signature for each file to prevent timestamp expiry
+            const sigRes = await fetch('/gallery/signature', { method: 'POST' });
+            if (!sigRes.ok) throw new Error('Authentication failed');
+            const sigData = await sigRes.json();
+
+            statusText.innerText = `Uploading: ${currentFile.name}`;
+            fileCountText.innerText = `${i + 1} / ${totalFiles}`;
+
+            await uploadSingleFile(currentFile, sigData);
+            uploadedCount++;
+
+            const overallPercent = Math.round((uploadedCount / totalFiles) * 100);
+            progressBar.style.width = overallPercent + '%';
+            progressPercent.innerText = overallPercent + '%';
+        }
+
+        statusText.innerText = `Sabhi ${totalFiles} files upload ho gayi! Refreshing...`;
+        setTimeout(() => window.location.reload(), 1200);
+
     } catch (err) {
-        alert('Error: ' + err.message);
+        alert('Upload Error: ' + err.message);
         progressBox.style.display = 'none';
-        statusText.innerText = 'Upload cancelled';
+        statusText.innerText = 'Upload failed';
     }
 }
 </script>
