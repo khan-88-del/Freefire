@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:video_player/video_player.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -341,7 +341,8 @@ class _MediaTabContentState extends State<MediaTabContent> {
         final items = resources.map>((item) {
           final publicId = item['public_id'] as String;
           final secureUrl = item['secure_url'] as String;
-          // High speed optimized video thumbnail aur streaming URL
+          
+          // वीडियो का थंबनेल (कवर फ़ोटो) Cloudinary के तेज़ फ़ॉर्मेट से अपने-आप बनेगा
           final thumbUrl = widget.resourceType == 'video'
               ? 'https://res.cloudinary.com/$cloudName/video/upload/so_0,q_auto,f_jpg/$publicId.jpg'
               : 'https://res.cloudinary.com/$cloudName/image/upload/q_auto,f_auto/$publicId.jpg';
@@ -400,13 +401,11 @@ class _MediaTabContentState extends State<MediaTabContent> {
     );
   }
 
-  void _openVideoPlayer(BuildContext context, String videoUrl) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AppVideoPlayerScreen(videoUrl: videoUrl),
-      ),
-    );
+  Future<void> _playVideo(String videoUrl) async {
+    final uri = Uri.parse(videoUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override
@@ -484,7 +483,7 @@ class _MediaTabContentState extends State<MediaTabContent> {
                   if (widget.resourceType == 'image') {
                     _openImageViewer(context, item['url']!);
                   } else {
-                    _openVideoPlayer(context, item['url']!);
+                    _playVideo(item['url']!);
                   }
                 },
                 child: Card(
@@ -562,92 +561,6 @@ class _MediaTabContentState extends State<MediaTabContent> {
             ),
           ),
       ],
-    );
-  }
-}
-
-class AppVideoPlayerScreen extends StatefulWidget {
-  final String videoUrl;
-  const AppVideoPlayerScreen({super.key, required this.videoUrl});
-
-  @override
-  State<AppVideoPlayerScreen> createState() => _AppVideoPlayerScreenState();
-}
-
-class _AppVideoPlayerScreenState extends State<AppVideoPlayerScreen> {
-  late VideoPlayerController _controller;
-  bool _initialized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = VideoPlayerController.networkUrl(
-      Uri.parse(widget.videoUrl),
-      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
-    )..initialize().then((_) {
-        setState(() {
-          _initialized = true;
-        });
-        _controller.play();
-      });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text('Video Player', style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Center(
-        child: _initialized
-            ? AspectRatio(
-                aspectRatio: _controller.value.aspectRatio,
-                child: Stack(
-                  alignment: Alignment.bottomCenter,
-                  children: [
-                    VideoPlayer(_controller),
-                    VideoProgressIndicator(
-                      _controller,
-                      allowScrubbing: true,
-                      colors: const VideoProgressColors(
-                        playedColor: Color(0xFFFFCC00),
-                        bufferedColor: Colors.white30,
-                        backgroundColor: Colors.grey,
-                      ),
-                    ),
-                    Center(
-                      child: IconButton(
-                        iconSize: 64,
-                        icon: Icon(
-                          _controller.value.isPlaying
-                              ? Icons.pause_circle_filled
-                              : Icons.play_circle_filled,
-                          color: const Color(0xFFFFCC00).withOpacity(0.85),
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _controller.value.isPlaying
-                                ? _controller.pause()
-                                : _controller.play();
-                          });
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : const CircularProgressIndicator(color: Color(0xFFFFCC00)),
-      ),
     );
   }
 }
