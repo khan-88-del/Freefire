@@ -131,6 +131,34 @@ def dashboard():
                            cloud_name=CLOUD_NAME,
                            api_key=API_KEY)
 
+
+@app.route('/gallery/upload', methods=['POST'])
+def bulk_gallery_upload():
+    if 'admin_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    files = request.files.getlist('files')
+    if not files:
+        return jsonify({'error': 'No files uploaded'}), 400
+
+    uploaded = 0
+    for f in files:
+        if f and f.filename != '':
+            is_video = f.mimetype.startswith('video/')
+            res_type = 'video' if is_video else 'image'
+            try:
+                cloudinary.uploader.upload(
+                    f,
+                    folder=f"madarsa_{MADARSA_TAG}",
+                    tags=[MADARSA_TAG, "madarsa_portal"],
+                    resource_type=res_type
+                )
+                uploaded += 1
+            except Exception as e:
+                print("Upload err:", e)
+                
+    return jsonify({'success': True, 'count': uploaded})
+
 @app.route('/gallery/signature', methods=['POST'])
 def generate_signature():
     if 'admin_id' not in session:
