@@ -35,13 +35,19 @@ class SafeSplashScreen extends StatefulWidget {
   State<SafeSplashScreen> createState() => _SafeSplashScreenState();
 }
 
-class _SafeSplashScreenState extends State<SafeSplashScreen> {
-  Timer? _timer;
+class _SafeSplashScreenState extends State<SafeSplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _progressController;
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer(const Duration(milliseconds: 4650), () {
+    _progressController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 4650),
+    )..forward();
+
+    Timer(const Duration(milliseconds: 4650), () {
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const SafeHomeScreen()),
@@ -52,31 +58,99 @@ class _SafeSplashScreenState extends State<SafeSplashScreen> {
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _progressController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
     return Scaffold(
       backgroundColor: Colors.black,
-      body: SizedBox.expand(
-        child: Image.asset(
-          'assets/images/splash_bg.jpg',
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return const Center(
-              child: Text(
-                'Jamia Samadiya',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 1. Full 9:16 background splash image
+          Image.asset(
+            'assets/images/splash_bg.jpg',
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return const Center(
+                child: Text(
+                  'Jamia Samadiya',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            );
-          },
-        ),
+              );
+            },
+          ),
+
+          // 2. Logo ke neeche positioned thick yellow progress bar
+          Positioned(
+            top: size.height * 0.63,
+            left: size.width * 0.15,
+            right: size.width * 0.15,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedBuilder(
+                  animation: _progressController,
+                  builder: (context, child) {
+                    return Container(
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.45),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: const Color(0xFFFFD700).withOpacity(0.6),
+                          width: 1.2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.35),
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: LinearProgressIndicator(
+                          value: _progressController.value,
+                          backgroundColor: Colors.transparent,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFFFFCC00),
+                          ),
+                          minHeight: 10,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Loading Portal...',
+                  style: TextStyle(
+                    color: const Color(0xFFFFD700),
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withOpacity(0.9),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
