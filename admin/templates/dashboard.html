@@ -80,15 +80,14 @@
       {% endif %}
     {% endwith %}
 
-    <!-- 1. Media Gallery Section (Bulk Upload up to 15+ files) -->
+    <!-- 1. Media Gallery Section (Duplicate Protection + 15+ Bulk Upload) -->
     <div class="portal-card">
         <h5 class="fw-bold text-warning mb-1"><i class="bi bi-images me-2"></i>Madarsa Media Gallery</h5>
-        <small class="text-white-50">Cloudinary Direct Upload with Realtime Progress</small>
+        <small class="text-white-50">Cloudinary Direct Upload (Same photo dobara upload nahi hogi)</small>
         <div class="my-2">
             <span class="badge bg-info text-dark">Tag: {{ MADARSA_TAG if MADARSA_TAG else '809047' }}</span>
         </div>
 
-        <!-- Direct Bulk Upload Action -->
         <div class="my-3 p-3 rounded" style="background-color: #0e1935; border: 1px dashed #283e72;">
             <div class="d-flex justify-content-between align-items-center">
                 <label for="mediaFileInput" class="btn btn-warning btn-sm fw-bold mb-0" style="cursor: pointer;">
@@ -96,7 +95,6 @@
                 </label>
                 <span id="uploadStatusText" class="small text-white-50">Ek saath 15+ files chunein</span>
             </div>
-            <!-- 'multiple' attribute allows selecting multiple images/videos at once -->
             <input type="file" id="mediaFileInput" accept="image/*,video/*" multiple style="display: none;" onchange="uploadMultipleMedia(this)">
             
             <div id="uploadProgressContainer" class="mt-2" style="display: none;">
@@ -110,7 +108,7 @@
             </div>
         </div>
 
-        <!-- Tabs: Photos vs Videos -->
+        <!-- Tabs -->
         <div class="d-flex gap-2 my-3">
             <button id="btnTabPhotos" class="tab-btn active" onclick="switchMediaTab('photos')">
                 <i class="bi bi-camera me-1"></i> Photos ({{ photos|length }})
@@ -123,7 +121,7 @@
         <!-- Photos Grid -->
         <div id="photosContainer" class="d-flex flex-wrap gap-2">
             {% for item in photos %}
-            <div class="position-relative" style="width: 100px; height: 100px;">
+            <div class="position-relative existing-media-item" data-id="{{ item.public_id }}" style="width: 100px; height: 100px;">
                 <img src="{{ item.secure_url }}" class="rounded w-100 h-100" style="object-fit: cover;">
                 <form action="/gallery/delete" method="POST" class="position-absolute top-0 end-0 m-1">
                     <input type="hidden" name="public_id" value="{{ item.public_id }}">
@@ -139,7 +137,7 @@
         <!-- Videos Grid -->
         <div id="videosContainer" class="d-flex flex-wrap gap-2" style="display: none !important;">
             {% for item in videos %}
-            <div class="position-relative rounded overflow-hidden" style="width: 140px; background-color: #0c142b; border: 1px solid #233560;">
+            <div class="position-relative rounded overflow-hidden existing-media-item" data-id="{{ item.public_id }}" style="width: 140px; background-color: #0c142b; border: 1px solid #233560;">
                 <video src="{{ item.secure_url }}" controls style="width: 100%; height: 100px; object-fit: cover;"></video>
                 <div class="p-1 d-flex justify-content-between align-items-center">
                     <small class="text-truncate text-white-50" style="max-width: 90px;">Video</small>
@@ -218,8 +216,27 @@ function switchMediaTab(tab) {
     }
 }
 
-// Single file upload promise function
-function uploadSingleFile(file, sigData) {
+// Generate unique hash based on file content to identify duplicate photos
+async function generateFileHash(file) {
+    const buffer = await file.slice(0, 100000).arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 20);
+}
+
+// Check if image is already present on the page
+function isDuplicateFile(publicIdCandidate) {
+    const items = document.querySelectorAll('.existing-media-item');
+    for (let el of items) {
+        const id = el.getAttribute('data-id') || '';
+        if (id.includes(publicIdCandidate)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function uploadSingleFile(file, sigData, uniqueId) {
     return new Promise((resolve, reject) => {
         const isVideo = file.type.startsWith('video');
         const resourceType = isVideo ? 'video' : 'image';
@@ -231,15 +248,17 @@ function uploadSingleFile(file, sigData) {
         formData.append('signature', sigData.signature);
         formData.append('folder', sigData.folder);
         formData.append('tags', sigData.tags);
+        formData.append('public_id', uniqueId);
+        formData.append('overwrite', 'false'); // Do not duplicate
 
         const xhr = new XMLHttpRequest();
         xhr.open('POST', `https://api.cloudinary.com/v1_1/${sigData.cloud_name}/${resourceType}/upload`);
 
         xhr.onload = function() {
             if (xhr.status === 200) {
-                resolve();
+                resolve({ success: true });
             } else {
-                reject(new Error(xhr.responseText));
+                resolve({ success: false, error: xhr.responseText });
             }
         };
 
@@ -251,7 +270,6 @@ function uploadSingleFile(file, sigData) {
     });
 }
 
-// Bulk upload function for 15+ files sequentially
 async function uploadMultipleMedia(input) {
     if (!input.files || input.files.length === 0) return;
     const files = Array.from(input.files);
@@ -264,15 +282,29 @@ async function uploadMultipleMedia(input) {
     const fileCountText = document.getElementById('uploadFileCount');
 
     progressBox.style.display = 'block';
-    statusText.innerText = 'Getting upload signature...';
+    statusText.innerText = 'Checking files & duplicates...';
 
     try {
         let uploadedCount = 0;
+        let skippedCount = 0;
 
         for (let i = 0; i < totalFiles; i++) {
             const currentFile = files[i];
-            
-            // Fresh signature for each file to prevent timestamp expiry
+
+            // 1. Calculate content hash
+            const fileHash = await generateFileHash(currentFile);
+            const cleanName = currentFile.name.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 15);
+            const uniqueMediaId = `${cleanName}_${fileHash}`;
+
+            // 2. Duplicate Check
+            if (isDuplicateFile(uniqueMediaId) || isDuplicateFile(fileHash)) {
+                skippedCount++;
+                fileCountText.innerText = `${i + 1} / ${totalFiles}`;
+                statusText.innerText = `Skipping duplicate: ${currentFile.name}`;
+                continue;
+            }
+
+            // 3. Get signature
             const sigRes = await fetch('/gallery/signature', { method: 'POST' });
             if (!sigRes.ok) throw new Error('Authentication failed');
             const sigData = await sigRes.json();
@@ -280,16 +312,21 @@ async function uploadMultipleMedia(input) {
             statusText.innerText = `Uploading: ${currentFile.name}`;
             fileCountText.innerText = `${i + 1} / ${totalFiles}`;
 
-            await uploadSingleFile(currentFile, sigData);
+            await uploadSingleFile(currentFile, sigData, uniqueMediaId);
             uploadedCount++;
 
-            const overallPercent = Math.round((uploadedCount / totalFiles) * 100);
+            const overallPercent = Math.round(((i + 1) / totalFiles) * 100);
             progressBar.style.width = overallPercent + '%';
             progressPercent.innerText = overallPercent + '%';
         }
 
-        statusText.innerText = `Sabhi ${totalFiles} files upload ho gayi! Refreshing...`;
-        setTimeout(() => window.location.reload(), 1200);
+        if (skippedCount > 0) {
+            statusText.innerText = `${uploadedCount} upload hue, ${skippedCount} duplicate skip kar diye gaye! Refreshing...`;
+        } else {
+            statusText.innerText = `Sabhi ${uploadedCount} media upload ho gaye! Refreshing...`;
+        }
+
+        setTimeout(() => window.location.reload(), 1400);
 
     } catch (err) {
         alert('Upload Error: ' + err.message);
