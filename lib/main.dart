@@ -6,12 +6,13 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
   ]);
   runApp(const MadarsaApp());
 }
 
 class MadarsaApp extends StatelessWidget {
-  const MadarsaApp({Key? key}) : super(key: key);
+  const MadarsaApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +21,7 @@ class MadarsaApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.green,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       home: const SplashScreen(),
     );
