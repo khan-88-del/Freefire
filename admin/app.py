@@ -1,8 +1,4 @@
 
-@app.route('/ping')
-def ping():
-    return "pong", 200
-
 import os
 import time
 from datetime import datetime
@@ -18,6 +14,10 @@ import cloudinary.utils
 import urllib.request
 
 app = Flask(__name__)
+
+@app.route('/ping')
+def ping():
+    return "pong", 200
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'madarsa-secret-key-prod-2026')
 
