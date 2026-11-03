@@ -1,3 +1,8 @@
+
+@app.route('/ping')
+def ping():
+    return "pong", 200
+
 import os
 import time
 from datetime import datetime
