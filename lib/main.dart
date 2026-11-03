@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:video_player/video_player.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -283,8 +284,8 @@ class GallerySwipeScreen extends StatelessWidget {
         ),
         body: const TabBarView(
           children: [
-            MediaTabContent(resourceType: 'image'),
-            MediaTabContent(resourceType: 'video'),
+            MediaTabContent(resourceType: 'image', pageSize: 25),
+            MediaTabContent(resourceType: 'video', pageSize: 20),
           ],
         ),
       ),
@@ -294,7 +295,8 @@ class GallerySwipeScreen extends StatelessWidget {
 
 class MediaTabContent extends StatefulWidget {
   final String resourceType;
-  const MediaTabContent({super.key, required this.resourceType});
+  final int pageSize;
+  const MediaTabContent({super.key, required this.resourceType, required this.pageSize});
 
   @override
   State<MediaTabContent> createState() => _MediaTabContentState();
@@ -303,7 +305,8 @@ class MediaTabContent extends StatefulWidget {
 class _MediaTabContentState extends State<MediaTabContent> {
   bool _loading = true;
   String? _error;
-  List<String> _mediaUrls = [];
+  List> _allMedia = [];
+  int _currentPage = 0;
 
   final String cloudName = "zufwpc7e";
   final String apiKey = "388794978456266";
@@ -324,7 +327,7 @@ class _MediaTabContentState extends State<MediaTabContent> {
     try {
       final authCredentials = base64Encode(utf8.encode('$apiKey:$apiSecret'));
       final endpoint = Uri.parse(
-        'https://api.cloudinary.com/v1_1/$cloudName/resources/${widget.resourceType}/upload?prefix=madarsa_809047&max_results=50',
+        'https://api.cloudinary.com/v1_1/$cloudName/resources/${widget.resourceType}/upload?prefix=madarsa_809047&max_results=500',
       );
 
       final response = await http.get(
@@ -335,10 +338,21 @@ class _MediaTabContentState extends State<MediaTabContent> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final resources = data['resources'] as List? ?? [];
-        final urls = resources.map<String>((item) => item['secure_url'] as String).toList();
+        final items = resources.map>((item) {
+          final publicId = item['public_id'] as String;
+          final secureUrl = item['secure_url'] as String;
+          // High speed optimized video thumbnail aur streaming URL
+          final thumbUrl = widget.resourceType == 'video'
+              ? 'https://res.cloudinary.com/$cloudName/video/upload/so_0,q_auto,f_jpg/$publicId.jpg'
+              : 'https://res.cloudinary.com/$cloudName/image/upload/q_auto,f_auto/$publicId.jpg';
+          return {
+            'url': secureUrl,
+            'thumb': thumbUrl,
+          };
+        }).toList();
 
         setState(() {
-          _mediaUrls = urls;
+          _allMedia = items;
           _loading = false;
         });
       } else {
@@ -386,6 +400,15 @@ class _MediaTabContentState extends State<MediaTabContent> {
     );
   }
 
+  void _openVideoPlayer(BuildContext context, String videoUrl) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AppVideoPlayerScreen(videoUrl: videoUrl),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -415,7 +438,7 @@ class _MediaTabContentState extends State<MediaTabContent> {
       );
     }
 
-    if (_mediaUrls.isEmpty) {
+    if (_allMedia.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -435,54 +458,196 @@ class _MediaTabContentState extends State<MediaTabContent> {
       );
     }
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 0.85,
+    final totalPages = (_allMedia.length / widget.pageSize).ceil();
+    final startIndex = _currentPage * widget.pageSize;
+    final endIndex = (startIndex + widget.pageSize > _allMedia.length)
+        ? _allMedia.length
+        : startIndex + widget.pageSize;
+    final currentList = _allMedia.sublist(startIndex, endIndex);
+
+    return Column(
+      children: [
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(12),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 0.85,
+            ),
+            itemCount: currentList.length,
+            itemBuilder: (context, index) {
+              final item = currentList[index];
+              return InkWell(
+                onTap: () {
+                  if (widget.resourceType == 'image') {
+                    _openImageViewer(context, item['url']!);
+                  } else {
+                    _openVideoPlayer(context, item['url']!);
+                  }
+                },
+                child: Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(
+                        item['thumb']!,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, progress) {
+                          if (progress == null) return child;
+                          return const Center(child: CircularProgressIndicator(color: Color(0xFF0F5132)));
+                        },
+                        errorBuilder: (context, error, stack) =>
+                            const Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                      ),
+                      if (widget.resourceType == 'video')
+                        Container(
+                          color: Colors.black26,
+                          child: const Center(
+                            child: Icon(
+                              Icons.play_circle_fill,
+                              size: 46,
+                              color: Color(0xFFFFCC00),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        if (totalPages > 1)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: Colors.black12)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _currentPage > 0
+                      ? () => setState(() => _currentPage--)
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F5132),
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: const Icon(Icons.arrow_back, size: 16),
+                  label: const Text('Previous'),
+                ),
+                Text(
+                  'Page ${_currentPage + 1} of $totalPages',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F5132)),
+                ),
+                ElevatedButton.icon(
+                  onPressed: _currentPage < totalPages - 1
+                      ? () => setState(() => _currentPage++)
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F5132),
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: const Icon(Icons.arrow_forward, size: 16),
+                  label: const Text('Next'),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class AppVideoPlayerScreen extends StatefulWidget {
+  final String videoUrl;
+  const AppVideoPlayerScreen({super.key, required this.videoUrl});
+
+  @override
+  State<AppVideoPlayerScreen> createState() => _AppVideoPlayerScreenState();
+}
+
+class _AppVideoPlayerScreenState extends State<AppVideoPlayerScreen> {
+  late VideoPlayerController _controller;
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(
+      Uri.parse(widget.videoUrl),
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    )..initialize().then((_) {
+        setState(() {
+          _initialized = true;
+        });
+        _controller.play();
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: const Text('Video Player', style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      itemCount: _mediaUrls.length,
-      itemBuilder: (context, index) {
-        final url = _mediaUrls[index];
-        return InkWell(
-          onTap: () {
-            if (widget.resourceType == 'image') {
-              _openImageViewer(context, url);
-            }
-          },
-          child: Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            clipBehavior: Clip.antiAlias,
-            child: widget.resourceType == 'image'
-                ? Image.network(
-                    url,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, progress) {
-                      if (progress == null) return child;
-                      return const Center(child: CircularProgressIndicator(color: Color(0xFF0F5132)));
-                    },
-                    errorBuilder: (context, error, stack) =>
-                        const Icon(Icons.broken_image, size: 40, color: Colors.grey),
-                  )
-                : Container(
-                    color: Colors.black87,
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.play_circle_fill, size: 50, color: Color(0xFFFFCC00)),
-                          const SizedBox(height: 8),
-                          Text('Video ${index + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                        ],
+      body: Center(
+        child: _initialized
+            ? AspectRatio(
+                aspectRatio: _controller.value.aspectRatio,
+                child: Stack(
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    VideoPlayer(_controller),
+                    VideoProgressIndicator(
+                      _controller,
+                      allowScrubbing: true,
+                      colors: const VideoProgressColors(
+                        playedColor: Color(0xFFFFCC00),
+                        bufferedColor: Colors.white30,
+                        backgroundColor: Colors.grey,
                       ),
                     ),
-                  ),
-          ),
-        );
-      },
+                    Center(
+                      child: IconButton(
+                        iconSize: 64,
+                        icon: Icon(
+                          _controller.value.isPlaying
+                              ? Icons.pause_circle_filled
+                              : Icons.play_circle_filled,
+                          color: const Color(0xFFFFCC00).withOpacity(0.85),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _controller.value.isPlaying
+                                ? _controller.pause()
+                                : _controller.play();
+                          });
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : const CircularProgressIndicator(color: Color(0xFFFFCC00)),
+      ),
     );
   }
 }
