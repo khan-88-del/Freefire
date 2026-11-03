@@ -162,91 +162,11 @@ class _SafeSplashScreenState extends State<SafeSplashScreen>
 class SafeHomeScreen extends StatelessWidget {
   const SafeHomeScreen({super.key});
 
-  void _showGallerySelection(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Jamia Samadiya Gallery',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F5132),
-                ),
-              ),
-              const SizedBox(height: 20),
-              ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFE8F5E9),
-                  child: Icon(Icons.photo_library, color: Color(0xFF0F5132)),
-                ),
-                title: const Text('Photo Gallery', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Madarsa ke tasweeraat (madarsa_809047)'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const MediaGridScreen(
-                        resourceType: 'image',
-                        title: 'Photo Gallery',
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const Divider(),
-              ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFFFF8E1),
-                  child: Icon(Icons.video_library, color: Colors.orange),
-                ),
-                title: const Text('Video Gallery', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Madarsa ke videos aur programs'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const MediaGridScreen(
-                        resourceType: 'video',
-                        title: 'Video Gallery',
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Madarsa Portal', style: TextStyle(color: Colors.white)),
+        title: const Text('Madarsa Portal', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF0F5132),
         centerTitle: true,
         elevation: 2,
@@ -275,7 +195,7 @@ class SafeHomeScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 6),
                   Text(
-                    'Online & Offline Student Portal',
+                    'Student & Institution Portal',
                     style: TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                 ],
@@ -293,17 +213,24 @@ class SafeHomeScreen extends StatelessWidget {
                   child: Icon(Icons.collections, color: Colors.white),
                 ),
                 title: const Text(
-                  'Gallery (Photos & Videos)',
+                  'Gallery',
                   style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F5132)),
                 ),
-                subtitle: const Text('Photos aur Videos dekhein (madarsa_809047)'),
+                subtitle: const Text('View photos and videos'),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF0F5132)),
-                onTap: () => _showGallerySelection(context),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const GallerySwipeScreen(),
+                    ),
+                  );
+                },
               ),
             ),
-            _buildTile(Icons.library_books, 'Darse Nizami Kitabein', 'Sabhi darjo ki kitabein'),
-            _buildTile(Icons.list_alt, 'Nisab wa Qawaneen', 'Syllabus aur zaroori niyam'),
-            _buildTile(Icons.info_outline, 'Madarsa Maloomat', 'Rabta wa zaroori record'),
+            _buildTile(Icons.library_books, 'Curriculum & Books', 'Explore syllabus and study books'),
+            _buildTile(Icons.list_alt, 'Rules & Regulations', 'Academic guidelines and policies'),
+            _buildTile(Icons.info_outline, 'About Institution', 'Contact details and overview'),
           ],
         ),
       ),
@@ -329,21 +256,51 @@ class SafeHomeScreen extends StatelessWidget {
   }
 }
 
-class MediaGridScreen extends StatefulWidget {
-  final String resourceType;
-  final String title;
-
-  const MediaGridScreen({
-    super.key,
-    required this.resourceType,
-    required this.title,
-  });
+class GallerySwipeScreen extends StatelessWidget {
+  const GallerySwipeScreen({super.key});
 
   @override
-  State<MediaGridScreen> createState() => _MediaGridScreenState();
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Gallery', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: const Color(0xFF0F5132),
+          iconTheme: const IconThemeData(color: Colors.white),
+          elevation: 2,
+          bottom: const TabBar(
+            indicatorColor: Color(0xFFFFCC00),
+            indicatorWeight: 3.5,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            labelStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            tabs: [
+              Tab(icon: Icon(Icons.photo_library), text: 'Photos'),
+              Tab(icon: Icon(Icons.video_library), text: 'Videos'),
+            ],
+          ),
+        ),
+        body: const TabBarView(
+          children: [
+            MediaTabContent(resourceType: 'image'),
+            MediaTabContent(resourceType: 'video'),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _MediaGridScreenState extends State<MediaGridScreen> {
+class MediaTabContent extends StatefulWidget {
+  final String resourceType;
+  const MediaTabContent({super.key, required this.resourceType});
+
+  @override
+  State<MediaTabContent> createState() => _MediaTabContentState();
+}
+
+class _MediaTabContentState extends State<MediaTabContent> {
   bool _loading = true;
   String? _error;
   List<String> _mediaUrls = [];
@@ -355,10 +312,10 @@ class _MediaGridScreenState extends State<MediaGridScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchCloudinaryMedia();
+    _fetchMedia();
   }
 
-  Future<void> _fetchCloudinaryMedia() async {
+  Future<void> _fetchMedia() async {
     setState(() {
       _loading = true;
       _error = null;
@@ -366,17 +323,13 @@ class _MediaGridScreenState extends State<MediaGridScreen> {
 
     try {
       final authCredentials = base64Encode(utf8.encode('$apiKey:$apiSecret'));
-      
-      // Cloudinary Admin API: Search via prefix/folder madarsa_809047
       final endpoint = Uri.parse(
         'https://api.cloudinary.com/v1_1/$cloudName/resources/${widget.resourceType}/upload?prefix=madarsa_809047&max_results=50',
       );
 
       final response = await http.get(
         endpoint,
-        headers: {
-          'Authorization': 'Basic $authCredentials',
-        },
+        headers: {'Authorization': 'Basic $authCredentials'},
       ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
@@ -390,109 +343,146 @@ class _MediaGridScreenState extends State<MediaGridScreen> {
         });
       } else {
         setState(() {
-          _error = "Response: ${response.statusCode}\nFolder madarsa_809047 load nahi hua.";
+          _error = 'Unable to load items. Status: ${response.statusCode}';
           _loading = false;
         });
       }
     } catch (e) {
       setState(() {
-        _error = "Network error: Connection check karein.";
+        _error = 'Please check your internet connection.';
         _loading = false;
       });
     }
   }
 
+  void _openImageViewer(BuildContext context, String imageUrl) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            iconTheme: const IconThemeData(color: Colors.white),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              panEnabled: true,
+              minScale: 0.8,
+              maxScale: 4.0,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return const CircularProgressIndicator(color: Color(0xFF0F5132));
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title, style: const TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF0F5132),
-        iconTheme: const IconThemeData(color: Colors.white),
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF0F5132)));
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.cloud_off, size: 56, color: Colors.grey),
+              const SizedBox(height: 12),
+              Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.black54)),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _fetchMedia,
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F5132)),
+                icon: const Icon(Icons.refresh, color: Colors.white),
+                label: const Text('Try Again', style: TextStyle(color: Colors.white)),
+              )
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_mediaUrls.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              widget.resourceType == 'image' ? Icons.photo_library_outlined : Icons.video_library_outlined,
+              size: 56,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'No ${widget.resourceType == 'image' ? 'photos' : 'videos'} available yet',
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(12),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 0.85,
       ),
-      body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF0F5132)),
-            )
-          : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.cloud_off, size: 60, color: Colors.grey),
-                        const SizedBox(height: 12),
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.black54),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: _fetchCloudinaryMedia,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0F5132),
-                          ),
-                          icon: const Icon(Icons.refresh, color: Colors.white),
-                          label: const Text('Dobara Koshish Karein', style: TextStyle(color: Colors.white)),
-                        )
-                      ],
+      itemCount: _mediaUrls.length,
+      itemBuilder: (context, index) {
+        final url = _mediaUrls[index];
+        return InkWell(
+          onTap: () {
+            if (widget.resourceType == 'image') {
+              _openImageViewer(context, url);
+            }
+          },
+          child: Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            clipBehavior: Clip.antiAlias,
+            child: widget.resourceType == 'image'
+                ? Image.network(
+                    url,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return const Center(child: CircularProgressIndicator(color: Color(0xFF0F5132)));
+                    },
+                    errorBuilder: (context, error, stack) =>
+                        const Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                  )
+                : Container(
+                    color: Colors.black87,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.play_circle_fill, size: 50, color: Color(0xFFFFCC00)),
+                          const SizedBox(height: 8),
+                          Text('Video ${index + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
                     ),
                   ),
-                )
-              : _mediaUrls.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'Is folder me koi media nahi mila.',
-                        style: TextStyle(fontSize: 16, color: Colors.black54),
-                      ),
-                    )
-                  : GridView.builder(
-                      padding: const EdgeInsets.all(12),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 10,
-                        mainAxisSpacing: 10,
-                        childAspectRatio: 0.85,
-                      ),
-                      itemCount: _mediaUrls.length,
-                      itemBuilder: (context, index) {
-                        final url = _mediaUrls[index];
-                        return Card(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: widget.resourceType == 'image'
-                              ? Image.network(
-                                  url,
-                                  fit: BoxFit.cover,
-                                  loadingBuilder: (context, child, progress) {
-                                    if (progress == null) return child;
-                                    return const Center(
-                                      child: CircularProgressIndicator(color: Color(0xFF0F5132)),
-                                    );
-                                  },
-                                  errorBuilder: (context, error, stack) =>
-                                      const Icon(Icons.broken_image, size: 40),
-                                )
-                              : Container(
-                                  color: Colors.black87,
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.play_circle_fill, size: 48, color: Colors.amber),
-                                        const SizedBox(height: 8),
-                                        Text('Video ${index + 1}', style: const TextStyle(color: Colors.white)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                        );
-                      },
-                    ),
+          ),
+        );
+      },
     );
   }
 }
