@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
@@ -58,6 +59,23 @@ class MaslaEntry(db.Model):
     volume = db.Column(db.String(50))
     page_number = db.Column(db.Integer)
 
+# Syllabus Models
+class SyllabusClass(db.Model):
+    __tablename__ = 'syllabus_classes'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    pdfs = db.relationship('SyllabusPDF', backref='syllabus_class', cascade='all, delete-orphan', lazy=True)
+
+class SyllabusPDF(db.Model):
+    __tablename__ = 'syllabus_pdfs'
+    id = db.Column(db.Integer, primary_key=True)
+    class_id = db.Column(db.Integer, db.ForeignKey('syllabus_classes.id'), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    file_url = db.Column(db.String(500), nullable=False)
+    public_id = db.Column(db.String(200), nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 # Auto-sync admin credentials on boot
 with app.app_context():
     try:
@@ -82,13 +100,13 @@ def login():
     if request.method == 'POST':
         uname = (request.form.get('username') or '').strip()
         pword = (request.form.get('password') or '').strip()
-        
+
         user = AdminUser.query.filter_by(username=uname).first()
         if user and bcrypt.check_password_hash(user.password_hash, pword):
             session['admin_id'] = user.id
             session['username'] = user.username
             return redirect(url_for('dashboard'))
-        
+
         flash('Galat credentials! Koshish record ho rahi hai.', 'danger')
     return render_template('login.html')
 
@@ -96,24 +114,26 @@ def login():
 def dashboard():
     if 'admin_id' not in session:
         return redirect(url_for('login'))
-    
+
     masail = MaslaEntry.query.order_by(MaslaEntry.id.desc()).all()
-    
+    classes = SyllabusClass.query.order_by(SyllabusClass.id.asc()).all()
+
     photos = []
     videos = []
     try:
         p_res = cloudinary.api.resources_by_tag(MADARSA_TAG, resource_type="image", max_results=50)
         photos = p_res.get('resources', [])
-        
+
         v_res = cloudinary.api.resources_by_tag(MADARSA_TAG, resource_type="video", max_results=50)
         videos = v_res.get('resources', [])
     except Exception as e:
         print("Cloudinary fetch error:", e)
 
-    return render_template('dashboard.html', 
-                           username=session['username'], 
-                           masail=masail, 
-                           photos=photos, 
+    return render_template('dashboard.html',
+                           username=session['username'],
+                           masail=masail,
+                           classes=classes,
+                           photos=photos,
                            videos=videos,
                            cloud_name=CLOUD_NAME,
                            api_key=API_KEY)
@@ -123,19 +143,19 @@ def dashboard():
 def generate_signature():
     if 'admin_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
-    
+
     timestamp = int(time.time())
     folder = f"madarsa_{MADARSA_TAG}"
     tags = f"{MADARSA_TAG},madarsa_portal"
-    
+
     params_to_sign = {
         'folder': folder,
         'tags': tags,
         'timestamp': timestamp
     }
-    
+
     signature = cloudinary.utils.api_sign_request(params_to_sign, API_SECRET)
-    
+
     return jsonify({
         'signature': signature,
         'timestamp': timestamp,
@@ -150,17 +170,16 @@ def generate_signature():
 def delete_media():
     if 'admin_id' not in session:
         return redirect(url_for('login'))
-    
+
     public_id = request.form.get('public_id')
     resource_type = request.form.get('resource_type', 'image')
-    
+
     if public_id:
         try:
             cloudinary.uploader.destroy(public_id, resource_type=resource_type)
             flash('File kamyabi se delete kar di gayi.', 'success')
         except Exception as e:
             flash(f'Delete nahi ho saki: {str(e)}', 'danger')
-            
     return redirect(url_for('dashboard'))
 
 @app.route('/masla/add', methods=['POST'])
@@ -178,6 +197,128 @@ def add_masla():
     db.session.commit()
     flash('Masla record mehfooz kar liya gaya hai.', 'success')
     return redirect(url_for('dashboard'))
+
+# ================== SYLLABUS ROUTES ==================
+
+# 1. Create Class (Form & Action)
+@app.route('/syllabus/create-class', methods=['GET', 'POST'])
+def create_class():
+    if 'admin_id' not in session:
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        class_name = (request.form.get('class_name') or '').strip()
+        pdf_title = (request.form.get('pdf_title') or '').strip()
+        pdf_file = request.files.get('pdf_file')
+
+        if not class_name:
+            flash('Class ka naam daalna zaroori hai!', 'danger')
+            return redirect(url_for('create_class'))
+
+        existing_c = SyllabusClass.query.filter_by(name=class_name).first()
+        if existing_c:
+            flash('Yeh class pehle se maujood hai!', 'warning')
+            return redirect(url_for('create_class'))
+
+        new_class = SyllabusClass(name=class_name)
+        db.session.add(new_class)
+        db.session.commit()
+
+        # Optional initial PDF upload
+        if pdf_file and pdf_file.filename != '':
+            try:
+                res = cloudinary.uploader.upload(
+                    pdf_file,
+                    folder=f"madarsa_{MADARSA_TAG}/syllabus",
+                    resource_type="raw"
+                )
+                title = pdf_title if pdf_title else pdf_file.filename
+                new_pdf = SyllabusPDF(
+                    class_id=new_class.id,
+                    title=title,
+                    file_url=res.get('secure_url'),
+                    public_id=res.get('public_id')
+                )
+                db.session.add(new_pdf)
+                db.session.commit()
+            except Exception as e:
+                flash(f'Class ban gayi lekin PDF upload error: {str(e)}', 'warning')
+
+        flash(f'Class "{class_name}" kamyabi se create ho gayi!', 'success')
+        return redirect(url_for('view_syllabus_classes'))
+
+    return render_template('create_class.html')
+
+# 2. Uploaded Syllabus (Classes List)
+@app.route('/syllabus/classes')
+def view_syllabus_classes():
+    if 'admin_id' not in session:
+        return redirect(url_for('login'))
+
+    classes = SyllabusClass.query.order_by(SyllabusClass.id.asc()).all()
+    return render_template('syllabus_classes.html', classes=classes)
+
+# 3. Class Detail (PDFs list + add + delete)
+@app.route('/syllabus/class/<int:class_id>')
+def class_detail(class_id):
+    if 'admin_id' not in session:
+        return redirect(url_for('login'))
+
+    s_class = SyllabusClass.query.get_or_404(class_id)
+    return render_template('class_detail.html', s_class=s_class)
+
+# 4. Add PDF to specific class
+@app.route('/syllabus/class/<int:class_id>/add-pdf', methods=['POST'])
+def add_pdf_to_class(class_id):
+    if 'admin_id' not in session:
+        return redirect(url_for('login'))
+
+    s_class = SyllabusClass.query.get_or_404(class_id)
+    pdf_title = (request.form.get('pdf_title') or '').strip()
+    pdf_file = request.files.get('pdf_file')
+
+    if not pdf_file or pdf_file.filename == '':
+        flash('Kripya PDF file chunein!', 'warning')
+        return redirect(url_for('class_detail', class_id=class_id))
+
+    try:
+        res = cloudinary.uploader.upload(
+            pdf_file,
+            folder=f"madarsa_{MADARSA_TAG}/syllabus",
+            resource_type="raw"
+        )
+        title = pdf_title if pdf_title else pdf_file.filename
+        new_pdf = SyllabusPDF(
+            class_id=s_class.id,
+            title=title,
+            file_url=res.get('secure_url'),
+            public_id=res.get('public_id')
+        )
+        db.session.add(new_pdf)
+        db.session.commit()
+        flash('PDF kamyabi se add kar di gayi!', 'success')
+    except Exception as e:
+        flash(f'Upload fail: {str(e)}', 'danger')
+
+    return redirect(url_for('class_detail', class_id=class_id))
+
+# 5. Delete PDF
+@app.route('/syllabus/pdf/<int:pdf_id>/delete', methods=['POST'])
+def delete_pdf(pdf_id):
+    if 'admin_id' not in session:
+        return redirect(url_for('login'))
+
+    pdf = SyllabusPDF.query.get_or_404(pdf_id)
+    class_id = pdf.class_id
+    try:
+        cloudinary.uploader.destroy(pdf.public_id, resource_type="raw")
+    except Exception:
+        pass
+
+    db.session.delete(pdf)
+    db.session.commit()
+    flash('PDF delete kar di gayi.', 'success')
+    return redirect(url_for('class_detail', class_id=class_id))
 
 @app.route('/logout')
 def logout():
