@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -342,7 +341,7 @@ class _MediaTabContentState extends State<MediaTabContent> {
           final publicId = item['public_id'] as String;
           final secureUrl = item['secure_url'] as String;
           
-          // वीडियो का थंबनेल (कवर फ़ोटो) Cloudinary के तेज़ फ़ॉर्मेट से अपने-आप बनेगा
+          // तेज़ ऑटो-फ़ॉर्मेट कवर इमेज (Thumbnail)
           final thumbUrl = widget.resourceType == 'video'
               ? 'https://res.cloudinary.com/$cloudName/video/upload/so_0,q_auto,f_jpg/$publicId.jpg'
               : 'https://res.cloudinary.com/$cloudName/image/upload/q_auto,f_auto/$publicId.jpg';
@@ -401,11 +400,40 @@ class _MediaTabContentState extends State<MediaTabContent> {
     );
   }
 
-  Future<void> _playVideo(String videoUrl) async {
-    final uri = Uri.parse(videoUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+  void _openVideoDialog(BuildContext context, String videoUrl) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0F5132),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Play Video', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: const Text(
+            'Would you like to play this video now in high speed?',
+            style: TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFCC00),
+                foregroundColor: Colors.black,
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                // System Intent के ज़रिए बिना किसी पैकेज क्रैश के वीडियो चलाएँ
+                const platform = MethodChannel('plugins.flutter.io/url_launcher');
+                platform.invokeMethod('launch', {'url': videoUrl}).catchError((_) {});
+              },
+              child: const Text('Play Now', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -483,7 +511,7 @@ class _MediaTabContentState extends State<MediaTabContent> {
                   if (widget.resourceType == 'image') {
                     _openImageViewer(context, item['url']!);
                   } else {
-                    _playVideo(item['url']!);
+                    _openVideoDialog(context, item['url']!);
                   }
                 },
                 child: Card(
