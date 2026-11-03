@@ -71,7 +71,7 @@ class _SafeSplashScreenState extends State<SafeSplashScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. Full 9:16 background splash image
+          // बैकग्राउंड स्प्लैश इमेज
           Image.asset(
             'assets/images/splash_bg.jpg',
             fit: BoxFit.cover,
@@ -89,11 +89,11 @@ class _SafeSplashScreenState extends State<SafeSplashScreen>
             },
           ),
 
-          // 2. Logo ke neeche positioned thick yellow progress bar
+          // लोगो के नीचे सेट प्रोग्रेस बार
           Positioned(
-            top: size.height * 0.63,
-            left: size.width * 0.15,
-            right: size.width * 0.15,
+            top: size.height * 0.68,
+            left: size.width * 0.18,
+            right: size.width * 0.18,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -101,19 +101,19 @@ class _SafeSplashScreenState extends State<SafeSplashScreen>
                   animation: _progressController,
                   builder: (context, child) {
                     return Container(
-                      height: 10,
+                      height: 12,
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.45),
+                        color: Colors.black.withOpacity(0.55),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: const Color(0xFFFFD700).withOpacity(0.6),
-                          width: 1.2,
+                          color: const Color(0xFFFFD700).withOpacity(0.8),
+                          width: 1.5,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.35),
-                            blurRadius: 6,
-                            offset: const Offset(0, 3),
+                            color: Colors.black.withOpacity(0.5),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
@@ -125,24 +125,25 @@ class _SafeSplashScreenState extends State<SafeSplashScreen>
                           valueColor: const AlwaysStoppedAnimation<Color>(
                             Color(0xFFFFCC00),
                           ),
-                          minHeight: 10,
+                          minHeight: 12,
                         ),
                       ),
                     );
                   },
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Text(
                   'Loading Portal...',
                   style: TextStyle(
                     color: const Color(0xFFFFD700),
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 0.8,
+                    letterSpacing: 1.0,
                     shadows: [
                       Shadow(
                         color: Colors.black.withOpacity(0.9),
-                        blurRadius: 4,
+                        blurRadius: 6,
+                        offset: const Offset(1, 1),
                       ),
                     ],
                   ),
