@@ -241,7 +241,7 @@ class SafeHomeScreen extends StatelessWidget {
               child: ListTile(
                 leading: const CircleAvatar(
                   backgroundColor: Color(0xFFB78103),
-                  child: Icon(Icons.auto_stories, color: Colors.white),
+                  child: Image.asset('assets/icons/syllabus_icon.png', fit: BoxFit.cover, errorBuilder: (ctx, err, st) => const Icon(Icons.auto_stories, color: Colors.white)),
                 ),
                 title: const Text(
                   'Syllabus Darse Nizami',
