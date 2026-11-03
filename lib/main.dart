@@ -181,29 +181,43 @@ class SafeHomeScreen extends StatelessWidget {
           padding: const EdgeInsets.all(16.0),
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
+              height: 165,
+              width: double.infinity,
               decoration: BoxDecoration(
-                color: const Color(0xFF0F5132),
                 borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Column(
-                children: [
-                  Icon(Icons.menu_book, size: 52, color: Colors.white),
-                  SizedBox(height: 10),
-                  Text(
-                    'Jamia Samadiya Portal',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 6),
-                  Text(
-                    'Student & Institution Portal',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
                   ),
                 ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.asset(
+                  'assets/icons/jamiasamdiya.png',
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F5132),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.menu_book, size: 48, color: Colors.white),
+                        SizedBox(height: 8),
+                        Text(
+                          'Jamia Samadiya Portal',
+                          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 20),
