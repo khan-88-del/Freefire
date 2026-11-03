@@ -198,7 +198,7 @@ class SafeHomeScreen extends StatelessWidget {
                   child: Icon(Icons.photo_library, color: Color(0xFF0F5132)),
                 ),
                 title: const Text('Photo Gallery', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Madarsa ke tasweeraat (Tag: 809047)'),
+                subtitle: const Text('Madarsa ke tasweeraat (madarsa_809047)'),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -206,7 +206,7 @@ class SafeHomeScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (context) => const MediaGridScreen(
-                        mediaType: 'image',
+                        resourceType: 'image',
                         title: 'Photo Gallery',
                       ),
                     ),
@@ -220,7 +220,7 @@ class SafeHomeScreen extends StatelessWidget {
                   child: Icon(Icons.video_library, color: Colors.orange),
                 ),
                 title: const Text('Video Gallery', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Madarsa ke programs aur videos'),
+                subtitle: const Text('Madarsa ke videos aur programs'),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -228,7 +228,7 @@ class SafeHomeScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (context) => const MediaGridScreen(
-                        mediaType: 'video',
+                        resourceType: 'video',
                         title: 'Video Gallery',
                       ),
                     ),
@@ -282,7 +282,6 @@ class SafeHomeScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            // Naya Gallery Card Button
             Card(
               margin: const EdgeInsets.only(bottom: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -297,7 +296,7 @@ class SafeHomeScreen extends StatelessWidget {
                   'Gallery (Photos & Videos)',
                   style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F5132)),
                 ),
-                subtitle: const Text('Photos aur Videos dekhein (Tag: 809047)'),
+                subtitle: const Text('Photos aur Videos dekhein (madarsa_809047)'),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF0F5132)),
                 onTap: () => _showGallerySelection(context),
               ),
@@ -331,12 +330,12 @@ class SafeHomeScreen extends StatelessWidget {
 }
 
 class MediaGridScreen extends StatefulWidget {
-  final String mediaType;
+  final String resourceType;
   final String title;
 
   const MediaGridScreen({
     super.key,
-    required this.mediaType,
+    required this.resourceType,
     required this.title,
   });
 
@@ -349,49 +348,55 @@ class _MediaGridScreenState extends State<MediaGridScreen> {
   String? _error;
   List<String> _mediaUrls = [];
 
-  // Agar aapka Render URL ho toh yahan apna URL direct set kar sakte hain
-  final String cloudName = "jamiasamadiya"; 
+  final String cloudName = "zufwpc7e";
+  final String apiKey = "388794978456266";
+  final String apiSecret = "8PSkiOY-CtKiRECNldZz_Y6v2-A";
 
   @override
   void initState() {
     super.initState();
-    _fetchTagMedia();
+    _fetchCloudinaryMedia();
   }
 
-  Future<void> _fetchTagMedia() async {
+  Future<void> _fetchCloudinaryMedia() async {
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      // Cloudinary Tag JSON Endpoint
-      final endpoint = "https://res.cloudinary.com/$cloudName/${widget.mediaType}/list/809047.json";
-      final response = await http.get(Uri.parse(endpoint)).timeout(const Duration(seconds: 10));
+      final authCredentials = base64Encode(utf8.encode('$apiKey:$apiSecret'));
+      
+      // Cloudinary Admin API: Search via prefix/folder madarsa_809047
+      final endpoint = Uri.parse(
+        'https://api.cloudinary.com/v1_1/$cloudName/resources/${widget.resourceType}/upload?prefix=madarsa_809047&max_results=50',
+      );
+
+      final response = await http.get(
+        endpoint,
+        headers: {
+          'Authorization': 'Basic $authCredentials',
+        },
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final resources = data['resources'] as List? ?? [];
-        final urls = resources.map((item) {
-          final publicId = item['public_id'];
-          final format = item['format'] ?? (widget.mediaType == 'image' ? 'jpg' : 'mp4');
-          return "https://res.cloudinary.com/$cloudName/${widget.mediaType}/upload/$publicId.$format";
-        }).toList();
+        final urls = resources.map<String>((item) => item['secure_url'] as String).toList();
 
         setState(() {
           _mediaUrls = urls;
           _loading = false;
         });
       } else {
-        // Agar Cloudinary public list restricted ho toh sample demo state
         setState(() {
-          _error = "Server response code: ${response.statusCode}\nWebsite backend URL connect karein.";
+          _error = "Response: ${response.statusCode}\nFolder madarsa_809047 load nahi hua.";
           _loading = false;
         });
       }
     } catch (e) {
       setState(() {
-        _error = "Media load nahi ho saka.\nCheck internet ya website cloud settings.";
+        _error = "Network error: Connection check karein.";
         _loading = false;
       });
     }
@@ -425,7 +430,7 @@ class _MediaGridScreenState extends State<MediaGridScreen> {
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton.icon(
-                          onPressed: _fetchTagMedia,
+                          onPressed: _fetchCloudinaryMedia,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0F5132),
                           ),
@@ -437,7 +442,12 @@ class _MediaGridScreenState extends State<MediaGridScreen> {
                   ),
                 )
               : _mediaUrls.isEmpty
-                  ? const Center(child: Text('Koi media nahi mila.'))
+                  ? const Center(
+                      child: Text(
+                        'Is folder me koi media nahi mila.',
+                        style: TextStyle(fontSize: 16, color: Colors.black54),
+                      ),
+                    )
                   : GridView.builder(
                       padding: const EdgeInsets.all(12),
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -454,13 +464,15 @@ class _MediaGridScreenState extends State<MediaGridScreen> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           clipBehavior: Clip.antiAlias,
-                          child: widget.mediaType == 'image'
+                          child: widget.resourceType == 'image'
                               ? Image.network(
                                   url,
                                   fit: BoxFit.cover,
                                   loadingBuilder: (context, child, progress) {
                                     if (progress == null) return child;
-                                    return const Center(child: CircularProgressIndicator());
+                                    return const Center(
+                                      child: CircularProgressIndicator(color: Color(0xFF0F5132)),
+                                    );
                                   },
                                   errorBuilder: (context, error, stack) =>
                                       const Icon(Icons.broken_image, size: 40),
