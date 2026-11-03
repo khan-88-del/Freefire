@@ -304,7 +304,7 @@ class MediaTabContent extends StatefulWidget {
 class _MediaTabContentState extends State<MediaTabContent> {
   bool _loading = true;
   String? _error;
-  List<dynamic> _allMedia = [];
+  List _allMedia = [];
   int _currentPage = 0;
 
   final String cloudName = "zufwpc7e";
@@ -335,9 +335,9 @@ class _MediaTabContentState extends State<MediaTabContent> {
       ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body);
-        final List<dynamic> resources = data['resources'] ?? [];
-        final List> items = [];
+        final Map parsed = json.decode(response.body);
+        final List resources = parsed['resources'] ?? [];
+        final List items = [];
 
         for (var item in resources) {
           final String publicId = item['public_id'].toString();
@@ -441,7 +441,7 @@ class _MediaTabContentState extends State<MediaTabContent> {
             ),
             const SizedBox(height: 10),
             Text(
-              'No ${widget.resourceType == 'image' ? 'photos' : 'videos'} available yet',
+              'No items available yet',
               style: TextStyle(fontSize: 16, color: Colors.grey[600]),
             ),
           ],
@@ -449,12 +449,12 @@ class _MediaTabContentState extends State<MediaTabContent> {
       );
     }
 
-    final totalPages = (_allMedia.length / widget.pageSize).ceil();
-    final startIndex = _currentPage * widget.pageSize;
-    final endIndex = (startIndex + widget.pageSize > _allMedia.length)
+    final int totalPages = (_allMedia.length / widget.pageSize).ceil();
+    final int startIndex = _currentPage * widget.pageSize;
+    final int endIndex = (startIndex + widget.pageSize > _allMedia.length)
         ? _allMedia.length
         : startIndex + widget.pageSize;
-    final currentList = _allMedia.sublist(startIndex, endIndex);
+    final List currentList = _allMedia.sublist(startIndex, endIndex);
 
     return Column(
       children: [
@@ -469,14 +469,13 @@ class _MediaTabContentState extends State<MediaTabContent> {
             ),
             itemCount: currentList.length,
             itemBuilder: (context, index) {
-              final Map<String, String> item = Map<String, String>.from(currentList[index]);
+              final Map item = currentList[index] as Map;
+              final String url = item['url'].toString();
+              final String thumb = item['thumb'].toString();
+
               return InkWell(
                 onTap: () {
-                  if (widget.resourceType == 'image') {
-                    _openImageViewer(context, item['url']!);
-                  } else {
-                    _openImageViewer(context, item['thumb']!);
-                  }
+                  _openImageViewer(context, url);
                 },
                 child: Card(
                   elevation: 2,
@@ -486,7 +485,7 @@ class _MediaTabContentState extends State<MediaTabContent> {
                     fit: StackFit.expand,
                     children: [
                       Image.network(
-                        item['thumb']!,
+                        thumb,
                         fit: BoxFit.cover,
                         loadingBuilder: (context, child, progress) {
                           if (progress == null) return child;
