@@ -42,7 +42,7 @@ class _SplashScreenState extends State<SplashScreen> {
             return const Center(
               child: Text(
                 'Jamia Samadiya',
-                style: TextStyle(color: Colors.white, fontSize: 24),
+                style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
               ),
             );
           },

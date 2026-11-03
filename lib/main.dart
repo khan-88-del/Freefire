@@ -20,8 +20,8 @@ class MadarsaApp extends StatelessWidget {
       title: 'Madarsa Portal',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primarySwatch: Colors.green,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
+        primaryColor: const Color(0xFF0F5132),
+        scaffoldBackgroundColor: const Color(0xFFF4F6F9),
       ),
       home: const SplashScreen(),
     );

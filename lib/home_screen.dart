@@ -1,117 +1,66 @@
 import 'package:flutter/material.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
-        title: const Text(
-          'Madarsa Portal',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-        ),
+        title: const Text('मदरसा पोर्टल', style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF0F5132),
-        elevation: 0,
         centerTitle: true,
+        elevation: 0,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          // Banner
-          Card(
-            color: const Color(0xFF0F5132),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20.0, horizontal: 16.0),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16.0),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F5132),
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Column(
-                children: [
-                  Icon(Icons.mosque, size: 40, color: Color(0xFFFFD700)),
-                  SizedBox(height: 8),
+                children: const [
+                  Icon(Icons.menu_book, size: 50, color: Colors.white),
+                  SizedBox(height: 10),
                   Text(
-                    'خوش آمدید',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFFFD700),
-                    ),
+                    'जामिया समदिया पोर्टल',
+                    style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
                   ),
-                  SizedBox(height: 4),
+                  SizedBox(height: 6),
                   Text(
-                    'Ilm-o-Amal ka Azeem Markaz',
-                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                    'ऑफलाइन अध्ययन एवं मदरसा प्रबंधन',
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-
-          // Menu Options
-          _buildMenuItem(
-            icon: Icons.account_circle,
-            iconColor: Colors.blue,
-            title: "Mohtamim / Owner Ta'aruf",
-            subtitle: "Madarse ke bani aur sarparast ki tehqeeq o khidmat",
-          ),
-          _buildMenuItem(
-            icon: Icons.school,
-            iconColor: Colors.teal,
-            title: "Sadar Mudarris / Principal Ta'aruf",
-            subtitle: "Ilmi silsila, mansab aur paighaam",
-          ),
-          _buildMenuItem(
-            icon: Icons.photo_library,
-            iconColor: Colors.orange,
-            title: "Photo & Video Gallery",
-            subtitle: "Madarse ki imarat, darsgaah aur jalson ke manazir",
-          ),
-          _buildMenuItem(
-            icon: Icons.menu_book,
-            iconColor: Colors.green,
-            title: "Syllabus & All Classes Books",
-            subtitle: "Nisaab-e-Taleem aur darja-waar kutub (PDF)",
-          ),
-          _buildMenuItem(
-            icon: Icons.auto_stories,
-            iconColor: Colors.purple,
-            title: "Tehqeeq Masla Masail (AI + Kutub)",
-            subtitle: "Apna masla likhein, Al fiqh kutub se dalil scan karega",
-          ),
-        ],
+            const SizedBox(height: 20),
+            _buildTile(Icons.library_books, 'दर्से निज़ामी किताबें', 'सभी दर्जों की किताबें और सबक'),
+            _buildTile(Icons.list_alt, 'सिलेबस (निशाब)', 'सालाना पाठ्यक्रम और नियम'),
+            _buildTile(Icons.contact_phone, 'मदरसा जानकारी', 'राबता और आवश्यक विवरण'),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildMenuItem({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-  }) {
+  static Widget _buildTile(IconData icon, String title, String subtitle) {
     return Card(
-      elevation: 1,
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 2,
       child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: iconColor),
+        leading: CircleAvatar(
+          backgroundColor: const Color(0xFF0F5132).withOpacity(0.1),
+          child: Icon(icon, color: const Color(0xFF0F5132)),
         ),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(fontSize: 12, color: Colors.black54),
-        ),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: () {},
       ),
     );
