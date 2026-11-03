@@ -83,7 +83,7 @@ class _SafeSplashScreenState extends State<SafeSplashScreen>
         children: [
           Image.asset(
             'assets/images/splash_bg.jpg',
-            fit: BoxFit.fill,
+            fit: BoxFit.fitHeight, alignment: Alignment.center,
             errorBuilder: (context, error, stackTrace) {
               return const Center(
                 child: Text(
@@ -197,7 +197,7 @@ class SafeHomeScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 child: Image.asset(
                   'assets/icons/jamiasamdiya.png',
-                  fit: BoxFit.fill,
+                  fit: BoxFit.fitHeight, alignment: Alignment.center,
                   width: double.infinity,
                   errorBuilder: (context, error, stackTrace) => Container(
                     padding: const EdgeInsets.all(20),
@@ -239,7 +239,7 @@ class SafeHomeScreen extends StatelessWidget {
                     'assets/icons/gallery_icon.png',
                     width: 48,
                     height: 48,
-                    fit: BoxFit.fill,
+                    fit: BoxFit.fitHeight, alignment: Alignment.center,
                     errorBuilder: (ctx, err, st) => const Icon(
                       Icons.collections,
                       color: Color(0xFF0F5132),
@@ -275,7 +275,7 @@ class SafeHomeScreen extends StatelessWidget {
                     'assets/icons/syllabus_icon.png',
                     width: 48,
                     height: 48,
-                    fit: BoxFit.fill,
+                    fit: BoxFit.fitHeight, alignment: Alignment.center,
                     errorBuilder: (ctx, err, st) => const Icon(
                       Icons.auto_stories,
                       color: Color(0xFFB78103),
@@ -1075,7 +1075,7 @@ class _MediaTabContentState extends State<MediaTabContent> {
                     children: [
                       Image.network(
                         thumb,
-                        fit: BoxFit.fill,
+                        fit: BoxFit.fitHeight, alignment: Alignment.center,
                         loadingBuilder: (context, child, progress) {
                           if (progress == null) return child;
                           return const Center(child: CircularProgressIndicator(color: Color(0xFF0F5132)));
