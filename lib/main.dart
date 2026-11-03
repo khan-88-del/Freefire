@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:video_player/video_player.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -400,6 +401,15 @@ class _MediaTabContentState extends State<MediaTabContent> {
     );
   }
 
+  void _openExoPlayer(BuildContext context, String videoUrl) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => WhatsAppStylePlayerScreen(videoUrl: videoUrl),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -475,7 +485,11 @@ class _MediaTabContentState extends State<MediaTabContent> {
 
               return InkWell(
                 onTap: () {
-                  _openImageViewer(context, widget.resourceType == 'image' ? url : thumb);
+                  if (widget.resourceType == 'image') {
+                    _openImageViewer(context, url);
+                  } else {
+                    _openExoPlayer(context, url);
+                  }
                 },
                 child: Card(
                   elevation: 2,
@@ -552,6 +566,123 @@ class _MediaTabContentState extends State<MediaTabContent> {
             ),
           ),
       ],
+    );
+  }
+}
+
+// WhatsApp style fast ExoPlayer view
+class WhatsAppStylePlayerScreen extends StatefulWidget {
+  final String videoUrl;
+  const WhatsAppStylePlayerScreen({super.key, required this.videoUrl});
+
+  @override
+  State<WhatsAppStylePlayerScreen> createState() => _WhatsAppStylePlayerScreenState();
+}
+
+class _WhatsAppStylePlayerScreenState extends State<WhatsAppStylePlayerScreen> {
+  late VideoPlayerController _controller;
+  bool _showControls = true;
+  Timer? _hideTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
+      ..initialize().then((_) {
+        setState(() {});
+        _controller.play();
+        _startHideTimer();
+      });
+  }
+
+  void _startHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _showControls = false);
+    });
+  }
+
+  void _toggleControls() {
+    setState(() {
+      _showControls = !_showControls;
+      if (_showControls) _startHideTimer();
+    });
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        onTap: _toggleControls,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Center(
+              child: _controller.value.isInitialized
+                  ? AspectRatio(
+                      aspectRatio: _controller.value.aspectRatio,
+                      child: VideoPlayer(_controller),
+                    )
+                  : const CircularProgressIndicator(color: Color(0xFFFFCC00)),
+            ),
+            if (_showControls) ...[
+              Positioned(
+                top: 40,
+                left: 10,
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+              Center(
+                child: IconButton(
+                  iconSize: 64,
+                  icon: Icon(
+                    _controller.value.isPlaying
+                        ? Icons.pause_circle_filled
+                        : Icons.play_circle_filled,
+                    color: Colors.white.withOpacity(0.85),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _controller.value.isPlaying
+                          ? _controller.pause()
+                          : _controller.play();
+                      _startHideTimer();
+                    });
+                  },
+                ),
+              ),
+              Positioned(
+                bottom: 20,
+                left: 16,
+                right: 16,
+                child: Column(
+                  children: [
+                    VideoProgressIndicator(
+                      _controller,
+                      allowScrubbing: true,
+                      colors: const VideoProgressColors(
+                        playedColor: Color(0xFFFFCC00),
+                        bufferedColor: Colors.white38,
+                        backgroundColor: Colors.white12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

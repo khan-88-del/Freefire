@@ -1,7 +1,7 @@
 name: madarsa
 description: "Madarsa Portal Mobile Application"
 publish_to: "none"
-version: 1.0.6+7
+version: 1.0.7+8
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -11,6 +11,7 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.2
   http: ^1.2.0
+  video_player: 2.8.1
 
 dev_dependencies:
   flutter_test:
