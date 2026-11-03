@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +24,9 @@ class MadarsaApp extends StatelessWidget {
       theme: ThemeData(
         scaffoldBackgroundColor: const Color(0xFFF4F6F9),
         primaryColor: const Color(0xFF0F5132),
+        colorScheme: ColorScheme.fromSwatch().copyWith(
+          primary: const Color(0xFF0F5132),
+        ),
       ),
       home: const SafeSplashScreen(),
     );
@@ -71,7 +76,6 @@ class _SafeSplashScreenState extends State<SafeSplashScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // बैकग्राउंड स्प्लैश इमेज
           Image.asset(
             'assets/images/splash_bg.jpg',
             fit: BoxFit.cover,
@@ -88,8 +92,6 @@ class _SafeSplashScreenState extends State<SafeSplashScreen>
               );
             },
           ),
-
-          // लोगो के नीचे सेट प्रोग्रेस बार
           Positioned(
             top: size.height * 0.68,
             left: size.width * 0.18,
@@ -160,6 +162,86 @@ class _SafeSplashScreenState extends State<SafeSplashScreen>
 class SafeHomeScreen extends StatelessWidget {
   const SafeHomeScreen({super.key});
 
+  void _showGallerySelection(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Jamia Samadiya Gallery',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F5132),
+                ),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFE8F5E9),
+                  child: Icon(Icons.photo_library, color: Color(0xFF0F5132)),
+                ),
+                title: const Text('Photo Gallery', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Madarsa ke tasweeraat (Tag: 809047)'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MediaGridScreen(
+                        mediaType: 'image',
+                        title: 'Photo Gallery',
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFFFF8E1),
+                  child: Icon(Icons.video_library, color: Colors.orange),
+                ),
+                title: const Text('Video Gallery', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Madarsa ke programs aur videos'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MediaGridScreen(
+                        mediaType: 'video',
+                        title: 'Video Gallery',
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -193,13 +275,33 @@ class SafeHomeScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 6),
                   Text(
-                    'Offline Portal & Student Dashboard',
+                    'Online & Offline Student Portal',
                     style: TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
+            // Naya Gallery Card Button
+            Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 2,
+              color: const Color(0xFFE8F5E9),
+              child: ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFF0F5132),
+                  child: Icon(Icons.collections, color: Colors.white),
+                ),
+                title: const Text(
+                  'Gallery (Photos & Videos)',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F5132)),
+                ),
+                subtitle: const Text('Photos aur Videos dekhein (Tag: 809047)'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF0F5132)),
+                onTap: () => _showGallerySelection(context),
+              ),
+            ),
             _buildTile(Icons.library_books, 'Darse Nizami Kitabein', 'Sabhi darjo ki kitabein'),
             _buildTile(Icons.list_alt, 'Nisab wa Qawaneen', 'Syllabus aur zaroori niyam'),
             _buildTile(Icons.info_outline, 'Madarsa Maloomat', 'Rabta wa zaroori record'),
@@ -224,6 +326,161 @@ class SafeHomeScreen extends StatelessWidget {
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: () {},
       ),
+    );
+  }
+}
+
+class MediaGridScreen extends StatefulWidget {
+  final String mediaType;
+  final String title;
+
+  const MediaGridScreen({
+    super.key,
+    required this.mediaType,
+    required this.title,
+  });
+
+  @override
+  State<MediaGridScreen> createState() => _MediaGridScreenState();
+}
+
+class _MediaGridScreenState extends State<MediaGridScreen> {
+  bool _loading = true;
+  String? _error;
+  List<String> _mediaUrls = [];
+
+  // Agar aapka Render URL ho toh yahan apna URL direct set kar sakte hain
+  final String cloudName = "jamiasamadiya"; 
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchTagMedia();
+  }
+
+  Future<void> _fetchTagMedia() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      // Cloudinary Tag JSON Endpoint
+      final endpoint = "https://res.cloudinary.com/$cloudName/${widget.mediaType}/list/809047.json";
+      final response = await http.get(Uri.parse(endpoint)).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final resources = data['resources'] as List? ?? [];
+        final urls = resources.map((item) {
+          final publicId = item['public_id'];
+          final format = item['format'] ?? (widget.mediaType == 'image' ? 'jpg' : 'mp4');
+          return "https://res.cloudinary.com/$cloudName/${widget.mediaType}/upload/$publicId.$format";
+        }).toList();
+
+        setState(() {
+          _mediaUrls = urls;
+          _loading = false;
+        });
+      } else {
+        // Agar Cloudinary public list restricted ho toh sample demo state
+        setState(() {
+          _error = "Server response code: ${response.statusCode}\nWebsite backend URL connect karein.";
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = "Media load nahi ho saka.\nCheck internet ya website cloud settings.";
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.title, style: const TextStyle(color: Colors.white)),
+        backgroundColor: const Color(0xFF0F5132),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: _loading
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF0F5132)),
+            )
+          : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.cloud_off, size: 60, color: Colors.grey),
+                        const SizedBox(height: 12),
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.black54),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: _fetchTagMedia,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0F5132),
+                          ),
+                          icon: const Icon(Icons.refresh, color: Colors.white),
+                          label: const Text('Dobara Koshish Karein', style: TextStyle(color: Colors.white)),
+                        )
+                      ],
+                    ),
+                  ),
+                )
+              : _mediaUrls.isEmpty
+                  ? const Center(child: Text('Koi media nahi mila.'))
+                  : GridView.builder(
+                      padding: const EdgeInsets.all(12),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
+                        childAspectRatio: 0.85,
+                      ),
+                      itemCount: _mediaUrls.length,
+                      itemBuilder: (context, index) {
+                        final url = _mediaUrls[index];
+                        return Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: widget.mediaType == 'image'
+                              ? Image.network(
+                                  url,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (context, child, progress) {
+                                    if (progress == null) return child;
+                                    return const Center(child: CircularProgressIndicator());
+                                  },
+                                  errorBuilder: (context, error, stack) =>
+                                      const Icon(Icons.broken_image, size: 40),
+                                )
+                              : Container(
+                                  color: Colors.black87,
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.play_circle_fill, size: 48, color: Colors.amber),
+                                        const SizedBox(height: 8),
+                                        Text('Video ${index + 1}', style: const TextStyle(color: Colors.white)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                        );
+                      },
+                    ),
     );
   }
 }
