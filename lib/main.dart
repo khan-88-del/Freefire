@@ -83,7 +83,7 @@ class _SafeSplashScreenState extends State<SafeSplashScreen>
         children: [
           Image.asset(
             'assets/images/splash_bg.jpg',
-            fit: BoxFit.cover,
+            fit: BoxFit.fill,
             errorBuilder: (context, error, stackTrace) {
               return const Center(
                 child: Text(
@@ -181,7 +181,7 @@ class SafeHomeScreen extends StatelessWidget {
           padding: const EdgeInsets.all(16.0),
           children: [
             Container(
-              height: 165,
+              height: 145,
               width: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
@@ -197,7 +197,7 @@ class SafeHomeScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 child: Image.asset(
                   'assets/icons/jamiasamdiya.png',
-                  fit: BoxFit.cover,
+                  fit: BoxFit.fill,
                   width: double.infinity,
                   errorBuilder: (context, error, stackTrace) => Container(
                     padding: const EdgeInsets.all(20),
@@ -239,7 +239,7 @@ class SafeHomeScreen extends StatelessWidget {
                     'assets/icons/gallery_icon.png',
                     width: 48,
                     height: 48,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.fill,
                     errorBuilder: (ctx, err, st) => const Icon(
                       Icons.collections,
                       color: Color(0xFF0F5132),
@@ -275,7 +275,7 @@ class SafeHomeScreen extends StatelessWidget {
                     'assets/icons/syllabus_icon.png',
                     width: 48,
                     height: 48,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.fill,
                     errorBuilder: (ctx, err, st) => const Icon(
                       Icons.auto_stories,
                       color: Color(0xFFB78103),
@@ -1075,7 +1075,7 @@ class _MediaTabContentState extends State<MediaTabContent> {
                     children: [
                       Image.network(
                         thumb,
-                        fit: BoxFit.cover,
+                        fit: BoxFit.fill,
                         loadingBuilder: (context, child, progress) {
                           if (progress == null) return child;
                           return const Center(child: CircularProgressIndicator(color: Color(0xFF0F5132)));
