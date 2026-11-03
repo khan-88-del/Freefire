@@ -302,6 +302,7 @@ class MediaTabContent extends StatefulWidget {
 }
 
 class _MediaTabContentState extends State<MediaTabContent> {
+  static const MethodChannel _platform = MethodChannel('com.madarsa.app/videoplayer');
   bool _loading = true;
   String? _error;
   List _allMedia = [];
@@ -400,6 +401,18 @@ class _MediaTabContentState extends State<MediaTabContent> {
     );
   }
 
+  Future<void> _playVideo(String videoUrl) async {
+    try {
+      await _platform.invokeMethod('playVideo', {'url': videoUrl});
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cannot open video player')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -475,7 +488,11 @@ class _MediaTabContentState extends State<MediaTabContent> {
 
               return InkWell(
                 onTap: () {
-                  _openImageViewer(context, url);
+                  if (widget.resourceType == 'image') {
+                    _openImageViewer(context, url);
+                  } else {
+                    _playVideo(url);
+                  }
                 },
                 child: Card(
                   elevation: 2,
