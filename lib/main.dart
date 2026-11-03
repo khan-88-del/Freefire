@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -233,7 +232,7 @@ class SafeHomeScreen extends StatelessWidget {
                 },
               ),
             ),
-            // Syllabus Darse Nizami Tile
+            // Syllabus Darse Nizami
             Card(
               margin: const EdgeInsets.only(bottom: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -287,7 +286,7 @@ class SafeHomeScreen extends StatelessWidget {
   }
 }
 
-// ================== SYLLABUS SCREENS ==================
+// ================== SYLLABUS ==================
 
 class SyllabusClassesScreen extends StatefulWidget {
   const SyllabusClassesScreen({super.key});
@@ -460,99 +459,33 @@ class _ClassPdfsScreenState extends State<ClassPdfsScreen> {
     }
   }
 
-  void _downloadFileWithProgress(String url, String title) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        double progress = 0.0;
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            _startDownload(url, title, (p) {
-              setDialogState(() {
-                progress = p;
-              });
-            }, () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('$title Downloaded in phone Download folder!')),
-              );
-            }, (err) {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Download Error: $err')),
-              );
-            });
-
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: Text('Downloading $title'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  LinearProgressIndicator(
-                    value: progress > 0 ? progress : null,
-                    backgroundColor: Colors.black12,
-                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0F5132)),
-                  ),
-                  const SizedBox(height: 12),
-                  Text('${(progress * 100).toStringAsFixed(0)}% Completed'),
-                ],
-              ),
-            );
-          },
-        );
-      },
+  void _openPdfViewer(String url, String title) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PdfViewerPage(pdfUrl: url, title: title),
+      ),
     );
   }
 
-  Future<void> _startDownload(
-    String url,
-    String title,
-    Function(double) onProgress,
-    VoidCallback onSuccess,
-    Function(String) onError,
-  ) async {
-    try {
-      final client = http.Client();
-      final request = http.Request('GET', Uri.parse(url));
-      final response = await client.send(request);
-
-      final total = response.contentLength ?? 0;
-      int received = 0;
-      List<int> bytes = [];
-
-      response.stream.listen(
-        (chunk) {
-          bytes.addAll(chunk);
-          received += chunk.length;
-          if (total > 0) {
-            onProgress(received / total);
-          }
-        },
-        onDone: () async {
-          try {
-            final cleanName = title.replaceAll(RegExp(r'[^\w\s\.-]'), '_');
-            final fileName = cleanName.endsWith('.pdf') ? cleanName : '$cleanName.pdf';
-            final downloadDir = Directory('/storage/emulated/0/Download');
-            if (!downloadDir.existsSync()) {
-              downloadDir.createSync(recursive: true);
-            }
-            final file = File('${downloadDir.path}/$fileName');
-            await file.writeAsBytes(bytes);
-            onSuccess();
-          } catch (e) {
-            onError(e.toString());
-          }
-        },
-        onError: (e) {
-          onError(e.toString());
-        },
-        cancelOnError: true,
-      );
-    } catch (e) {
-      onError(e.toString());
+  void _directDownload(String fileUrl, String title) {
+    // Cloudinary download link generator
+    String downloadUrl = fileUrl;
+    if (downloadUrl.contains("/upload/")) {
+      downloadUrl = downloadUrl.replaceFirst("/upload/", "/upload/fl_attachment/");
     }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF0F5132),
+        content: Text('Downloading "$title"... Check notification bar.'),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+
+    // Launch via Android system downloader without block
+    const platform = MethodChannel('plugins.flutter.io/url_launcher');
+    platform.invokeMethod('launch', {'url': downloadUrl}).catchError((_) {});
   }
 
   @override
@@ -619,12 +552,7 @@ class _ClassPdfsScreenState extends State<ClassPdfsScreen> {
                                         foregroundColor: const Color(0xFF0F5132),
                                       ),
                                       onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => PdfWebPreview(url: fileUrl, title: title),
-                                          ),
-                                        );
+                                        _openPdfViewer(fileUrl, title);
                                       },
                                     ),
                                     const SizedBox(width: 10),
@@ -636,7 +564,7 @@ class _ClassPdfsScreenState extends State<ClassPdfsScreen> {
                                         foregroundColor: Colors.white,
                                       ),
                                       onPressed: () {
-                                        _downloadFileWithProgress(fileUrl, title);
+                                        _directDownload(fileUrl, title);
                                       },
                                     ),
                                   ],
@@ -651,18 +579,46 @@ class _ClassPdfsScreenState extends State<ClassPdfsScreen> {
   }
 }
 
-class PdfWebPreview extends StatelessWidget {
-  final String url;
+// In-app Google Docs PDF Online Reader
+class PdfViewerPage extends StatefulWidget {
+  final String pdfUrl;
   final String title;
-  const PdfWebPreview({super.key, required this.url, required this.title});
+  const PdfViewerPage({super.key, required this.pdfUrl, required this.title});
+
+  @override
+  State<PdfViewerPage> createState() => _PdfViewerPageState();
+}
+
+class _PdfViewerPageState extends State<PdfViewerPage> {
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _loading = false);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final googleDocsViewerUrl =
+        "https://docs.google.com/viewer?url=${Uri.encodeComponent(widget.pdfUrl)}&embedded=true";
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(title, style: const TextStyle(color: Colors.white)),
+        title: Text(widget.title, style: const TextStyle(color: Colors.white, fontSize: 16)),
         backgroundColor: const Color(0xFF0F5132),
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.open_in_browser),
+            onPressed: () {
+              const platform = MethodChannel('plugins.flutter.io/url_launcher');
+              platform.invokeMethod('launch', {'url': widget.pdfUrl}).catchError((_) {});
+            },
+          )
+        ],
       ),
       body: Center(
         child: Padding(
@@ -673,21 +629,27 @@ class PdfWebPreview extends StatelessWidget {
               const Icon(Icons.picture_as_pdf, size: 72, color: Colors.red),
               const SizedBox(height: 16),
               Text(
-                title,
+                widget.title,
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
+              const Text(
+                'Instant Cloud Document Reader',
+                style: TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 24),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0F5132),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 ),
-                icon: const Icon(Icons.open_in_new),
-                label: const Text('View Document Online'),
+                icon: const Icon(Icons.chrome_reader_mode),
+                label: const Text('Read Document Fullscreen', style: TextStyle(fontWeight: FontWeight.bold)),
                 onPressed: () {
-                  // Direct cloud view
+                  const platform = MethodChannel('plugins.flutter.io/url_launcher');
+                  platform.invokeMethod('launch', {'url': googleDocsViewerUrl}).catchError((_) {});
                 },
               ),
             ],
