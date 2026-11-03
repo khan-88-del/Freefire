@@ -1,7 +1,7 @@
 import os
 import time
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_limiter import Limiter
@@ -10,6 +10,7 @@ import cloudinary
 import cloudinary.uploader
 import cloudinary.api
 import cloudinary.utils
+import urllib.request
 
 app = Flask(__name__)
 
@@ -181,7 +182,7 @@ def add_masla():
     flash('Masla record mehfooz kar liya gaya hai.', 'success')
     return redirect(url_for('dashboard'))
 
-# Public Direct Access Upload Function
+# PDF Upload
 def upload_pdf_file(pdf_file, title):
     clean_title = "".join(c for c in title if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
     custom_public_id = f"madarsa_{MADARSA_TAG}/syllabus/{clean_title}_{int(time.time())}"
@@ -189,15 +190,9 @@ def upload_pdf_file(pdf_file, title):
     res = cloudinary.uploader.upload(
         pdf_file,
         public_id=custom_public_id,
-        resource_type="image",
-        format="pdf",
-        type="upload",
-        access_mode="public"
+        resource_type="raw"
     )
-    url = res.get('secure_url')
-    if not url.endswith('.pdf'):
-        url = url + '.pdf'
-    return url, res.get('public_id')
+    return res.get('secure_url'), res.get('public_id')
 
 @app.route('/syllabus/create-class', methods=['GET', 'POST'])
 def create_class():
@@ -286,6 +281,39 @@ def add_pdf_to_class(class_id):
 
     return redirect(url_for('class_detail', class_id=class_id))
 
+# Proxy View / Download Route (Never 401 ACL error)
+@app.route('/syllabus/pdf/<int:pdf_id>/view')
+def view_or_download_pdf(pdf_id):
+    pdf = SyllabusPDF.query.get_or_404(pdf_id)
+    try:
+        # Generate authenticated download URL using credentials
+        auth_url = cloudinary.utils.cloudinary_url(
+            pdf.public_id,
+            resource_type="raw",
+            type="upload",
+            sign_url=True
+        )[0]
+
+        req = urllib.request.Request(auth_url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req) as response:
+            file_data = response.read()
+
+        clean_title = "".join(c for c in pdf.title if c.isalnum() or c in (' ', '_', '-')).strip()
+        filename = f"{clean_title}.pdf"
+
+        # Check if download requested
+        is_dl = request.args.get('download', '0') == '1'
+        disposition = f'attachment; filename="{filename}"' if is_dl else f'inline; filename="{filename}"'
+
+        return Response(
+            file_data,
+            mimetype='application/pdf',
+            headers={'Content-Disposition': disposition}
+        )
+    except Exception as e:
+        # Fallback to direct redirect
+        return redirect(pdf.file_url)
+
 @app.route('/syllabus/pdf/<int:pdf_id>/delete', methods=['POST'])
 def delete_pdf(pdf_id):
     if 'admin_id' not in session:
@@ -294,9 +322,8 @@ def delete_pdf(pdf_id):
     pdf = SyllabusPDF.query.get_or_404(pdf_id)
     class_id = pdf.class_id
     try:
-        # Try image type first, fallback raw
-        cloudinary.uploader.destroy(pdf.public_id, resource_type="image")
         cloudinary.uploader.destroy(pdf.public_id, resource_type="raw")
+        cloudinary.uploader.destroy(pdf.public_id, resource_type="image")
     except Exception:
         pass
 
@@ -305,6 +332,7 @@ def delete_pdf(pdf_id):
     flash('PDF delete kar di gayi.', 'success')
     return redirect(url_for('class_detail', class_id=class_id))
 
+# API Routes for Mobile App
 @app.route('/api/syllabus/classes', methods=['GET'])
 def api_syllabus_classes():
     classes = SyllabusClass.query.order_by(SyllabusClass.id.asc()).all()
@@ -324,10 +352,12 @@ def api_class_pdfs(class_id):
         return jsonify({'success': False, 'error': 'Class not found'}), 404
     pdfs = []
     for p in s_class.pdfs:
+        # Secure stream URL instead of raw Cloudinary URL
+        secure_stream_url = url_for('view_or_download_pdf', pdf_id=p.id, _external=True)
         pdfs.append({
             'id': p.id,
             'title': p.title,
-            'file_url': p.file_url,
+            'file_url': secure_stream_url,
             'uploaded_at': p.uploaded_at.strftime('%d-%b-%Y') if p.uploaded_at else ''
         })
     return jsonify({
