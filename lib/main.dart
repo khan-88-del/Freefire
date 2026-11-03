@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
+import 'package:flutter_pdfview/flutter_pdfview.dart';
 
 const String BASE_API_URL = "https://app-itb0.onrender.com";
 
@@ -456,9 +457,13 @@ class _ClassPdfsScreenState extends State<ClassPdfsScreen> {
     }
   }
 
-  void _openPdfDirectly(String url) {
-    const platform = MethodChannel('plugins.flutter.io/url_launcher');
-    platform.invokeMethod('launch', {'url': url}).catchError((_) {});
+  void _openInAppPdfViewer(String url, String title) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NativeInAppPdfViewer(pdfUrl: url, title: title),
+      ),
+    );
   }
 
   void _downloadPdfDirectly(String url, String title) async {
@@ -483,9 +488,9 @@ class _ClassPdfsScreenState extends State<ClassPdfsScreen> {
     );
 
     try {
-      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 30));
+      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 35));
       if (!mounted) return;
-      Navigator.pop(context); // close loader
+      Navigator.pop(context);
 
       if (res.statusCode == 200) {
         String cleanTitle = title.replaceAll(RegExp(r'[^\w\s\.-]'), '_').trim();
@@ -501,15 +506,26 @@ class _ClassPdfsScreenState extends State<ClassPdfsScreen> {
         final file = File('${downloadDir.path}/$cleanTitle');
         await file.writeAsBytes(res.bodyBytes);
 
+        // Urdu message bina kisi emoji ke
         showDialog(
           context: context,
           builder: (c) => AlertDialog(
-            title: const Text('Download Success! 🎉'),
-            content: Text('File mehfooz ho gayi hai:\n\n📁 Download/$cleanTitle'),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text(
+              'کامیابی',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF0F5132)),
+            ),
+            content: Text(
+              '$title پی ڈی ایف مکمل ڈاؤنلوڈ ہو گیا',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16),
+            ),
+            actionsAlignment: MainAxisAlignment.center,
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(c),
-                child: const Text('OK', style: TextStyle(color: Color(0xFF0F5132), fontWeight: FontWeight.bold)),
+                child: const Text('ٹھیک ہے', style: TextStyle(color: Color(0xFF0F5132), fontWeight: FontWeight.bold, fontSize: 16)),
               )
             ],
           ),
@@ -593,7 +609,7 @@ class _ClassPdfsScreenState extends State<ClassPdfsScreen> {
                                         foregroundColor: const Color(0xFF0F5132),
                                       ),
                                       onPressed: () {
-                                        _openPdfDirectly(fileUrl);
+                                        _openInAppPdfViewer(fileUrl, title);
                                       },
                                     ),
                                     const SizedBox(width: 10),
@@ -620,6 +636,107 @@ class _ClassPdfsScreenState extends State<ClassPdfsScreen> {
   }
 }
 
+// Full In-App PDF Viewer Screen
+class NativeInAppPdfViewer extends StatefulWidget {
+  final String pdfUrl;
+  final String title;
+  const NativeInAppPdfViewer({super.key, required this.pdfUrl, required this.title});
+
+  @override
+  State<NativeInAppPdfViewer> createState() => _NativeInAppPdfViewerState();
+}
+
+class _NativeInAppPdfViewerState extends State<NativeInAppPdfViewer> {
+  String? _localPath;
+  bool _loading = true;
+  String? _error;
+  int _totalPages = 0;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _downloadAndLoadPdf();
+  }
+
+  Future<void> _downloadAndLoadPdf() async {
+    try {
+      final res = await http.get(Uri.parse(widget.pdfUrl)).timeout(const Duration(seconds: 35));
+      if (res.statusCode == 200) {
+        final tempDir = Directory.systemTemp;
+        final file = File('${tempDir.path}/temp_${DateTime.now().millisecondsSinceEpoch}.pdf');
+        await file.writeAsBytes(res.bodyBytes);
+        if (mounted) {
+          setState(() {
+            _localPath = file.path;
+            _loading = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() { _error = 'PDF load nahi ho saki: ${res.statusCode}'; _loading = false; });
+      }
+    } catch (e) {
+      if (mounted) setState(() { _error = 'Check internet connection'; _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.title, style: const TextStyle(color: Colors.white, fontSize: 16)),
+        backgroundColor: const Color(0xFF0F5132),
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          if (_totalPages > 0)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 16.0),
+                child: Text(
+                  '${_currentPage + 1}/$_totalPages',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+        ],
+      ),
+      body: _loading
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: Color(0xFF0F5132)),
+                  SizedBox(height: 14),
+                  Text('Opening PDF Document...', style: TextStyle(color: Colors.black54)),
+                ],
+              ),
+            )
+          : _error != null
+              ? Center(child: Text(_error!))
+              : _localPath != null
+                  ? PDFView(
+                      filePath: _localPath!,
+                      enableSwipe: true,
+                      swipeHorizontal: false,
+                      autoSpacing: true,
+                      pageFling: true,
+                      onRender: (pages) {
+                        setState(() {
+                          _totalPages = pages ?? 0;
+                        });
+                      },
+                      onPageChanged: (page, total) {
+                        setState(() {
+                          _currentPage = page ?? 0;
+                        });
+                      },
+                    )
+                  : const Center(child: Text('Document nahi mila')),
+    );
+  }
+}
+
+// Gallery & ExoPlayer
 class GallerySwipeScreen extends StatelessWidget {
   const GallerySwipeScreen({super.key});
 
