@@ -31,7 +31,7 @@
             text-decoration: none;
             font-size: 14px;
         }
-        .form-control, .form-select {
+        .form-control {
             background-color: #0e1935 !important;
             border: 1px solid #283e72 !important;
             color: #fff !important;
@@ -40,12 +40,18 @@
         .form-control:focus {
             box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
         }
-        .class-box {
-            background-color: #0f1c3d;
-            border: 1px solid #283e72;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 12px;
+        .tab-btn {
+            background-color: transparent;
+            border: 1px solid #2a3f70;
+            color: #cfd9ed;
+            border-radius: 8px;
+            padding: 6px 14px;
+            font-weight: 600;
+        }
+        .tab-btn.active {
+            background-color: #198754;
+            border-color: #198754;
+            color: #fff;
         }
     </style>
 </head>
@@ -74,7 +80,7 @@
       {% endif %}
     {% endwith %}
 
-    <!-- 1. Media Gallery Section -->
+    <!-- 1. Media Gallery Section (Upload + View Photos/Videos) -->
     <div class="portal-card">
         <h5 class="fw-bold text-warning mb-1"><i class="bi bi-images me-2"></i>Madarsa Media Gallery</h5>
         <small class="text-white-50">Cloudinary Direct Upload with Realtime Progress</small>
@@ -82,12 +88,39 @@
             <span class="badge bg-info text-dark">Tag: {{ MADARSA_TAG if MADARSA_TAG else '809047' }}</span>
         </div>
 
-        <div class="d-flex gap-2 my-3">
-            <button class="btn btn-success btn-sm px-3 fw-bold"><i class="bi bi-camera me-1"></i> Photos ({{ photos|length }})</button>
-            <button class="btn btn-outline-light btn-sm px-3"><i class="bi bi-camera-video me-1"></i> Videos ({{ videos|length }})</button>
+        <!-- Direct Upload Action -->
+        <div class="my-3 p-3 rounded" style="background-color: #0e1935; border: 1px dashed #283e72;">
+            <div class="d-flex justify-content-between align-items-center">
+                <label for="mediaFileInput" class="btn btn-warning btn-sm fw-bold mb-0" style="cursor: pointer;">
+                    <i class="bi bi-cloud-arrow-up-fill me-1"></i> Direct Upload Media
+                </label>
+                <span id="uploadStatusText" class="small text-white-50">Photo ya Video select karein</span>
+            </div>
+            <input type="file" id="mediaFileInput" accept="image/*,video/*" style="display: none;" onchange="uploadSelectedMedia(this)">
+            
+            <div id="uploadProgressContainer" class="mt-2" style="display: none;">
+                <div class="progress" style="height: 10px; background-color: #1a2c5b;">
+                    <div id="uploadProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" style="width: 0%;"></div>
+                </div>
+                <div class="d-flex justify-content-between small text-white-50 mt-1">
+                    <span id="uploadPercent">0%</span>
+                    <span>Uploading...</span>
+                </div>
+            </div>
         </div>
 
-        <div class="d-flex flex-wrap gap-2">
+        <!-- Tabs: Photos vs Videos -->
+        <div class="d-flex gap-2 my-3">
+            <button id="btnTabPhotos" class="tab-btn active" onclick="switchMediaTab('photos')">
+                <i class="bi bi-camera me-1"></i> Photos ({{ photos|length }})
+            </button>
+            <button id="btnTabVideos" class="tab-btn" onclick="switchMediaTab('videos')">
+                <i class="bi bi-camera-video me-1"></i> Videos ({{ videos|length }})
+            </button>
+        </div>
+
+        <!-- Photos Grid -->
+        <div id="photosContainer" class="d-flex flex-wrap gap-2">
             {% for item in photos %}
             <div class="position-relative" style="width: 100px; height: 100px;">
                 <img src="{{ item.secure_url }}" class="rounded w-100 h-100" style="object-fit: cover;">
@@ -97,11 +130,32 @@
                     <button type="submit" class="btn btn-danger btn-sm p-1 py-0" onclick="return confirm('Delete this photo?');"><i class="bi bi-trash"></i></button>
                 </form>
             </div>
+            {% else %}
+            <p class="text-white-50 small my-2">Abhi tak koi photo upload nahi hui hai.</p>
+            {% endfor %}
+        </div>
+
+        <!-- Videos Grid -->
+        <div id="videosContainer" class="d-flex flex-wrap gap-2" style="display: none !important;">
+            {% for item in videos %}
+            <div class="position-relative rounded overflow-hidden" style="width: 140px; background-color: #0c142b; border: 1px solid #233560;">
+                <video src="{{ item.secure_url }}" controls style="width: 100%; height: 100px; object-fit: cover;"></video>
+                <div class="p-1 d-flex justify-content-between align-items-center">
+                    <small class="text-truncate text-white-50" style="max-width: 90px;">Video</small>
+                    <form action="/gallery/delete" method="POST" class="m-0">
+                        <input type="hidden" name="public_id" value="{{ item.public_id }}">
+                        <input type="hidden" name="resource_type" value="video">
+                        <button type="submit" class="btn btn-danger btn-sm p-1 py-0" onclick="return confirm('Delete this video?');"><i class="bi bi-trash"></i></button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <p class="text-white-50 small my-2">Abhi tak koi video upload nahi hui hai.</p>
             {% endfor %}
         </div>
     </div>
 
-    <!-- 2. NAYA SYLLABUS SECTION -->
+    <!-- 2. Syllabus & Classes Section -->
     <div class="portal-card" style="border-left: 4px solid #198754;">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="fw-bold text-success mb-0"><i class="bi bi-book-half me-2"></i>Syllabus & Classes</h5>
@@ -143,6 +197,92 @@
 
 </div>
 
+<script>
+function switchMediaTab(tab) {
+    const btnPhotos = document.getElementById('btnTabPhotos');
+    const btnVideos = document.getElementById('btnTabVideos');
+    const photosDiv = document.getElementById('photosContainer');
+    const videosDiv = document.getElementById('videosContainer');
+
+    if (tab === 'photos') {
+        btnPhotos.classList.add('active');
+        btnVideos.classList.remove('active');
+        photosDiv.style.setProperty('display', 'flex', 'important');
+        videosDiv.style.setProperty('display', 'none', 'important');
+    } else {
+        btnVideos.classList.add('active');
+        btnPhotos.classList.remove('active');
+        videosDiv.style.setProperty('display', 'flex', 'important');
+        photosDiv.style.setProperty('display', 'none', 'important');
+    }
+}
+
+async function uploadSelectedMedia(input) {
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    const isVideo = file.type.startsWith('video');
+    const resourceType = isVideo ? 'video' : 'image';
+
+    const statusText = document.getElementById('uploadStatusText');
+    const progressBox = document.getElementById('uploadProgressContainer');
+    const progressBar = document.getElementById('uploadProgressBar');
+    const progressPercent = document.getElementById('uploadPercent');
+
+    statusText.innerText = 'Getting signature...';
+    progressBox.style.display = 'block';
+
+    try {
+        // 1. Get upload signature from Flask
+        const sigRes = await fetch('/gallery/signature', { method: 'POST' });
+        if (!sigRes.ok) throw new Error('Authentication error');
+        const sigData = await sigRes.json();
+
+        // 2. Prepare upload payload to Cloudinary
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('api_key', sigData.api_key);
+        formData.append('timestamp', sigData.timestamp);
+        formData.append('signature', sigData.signature);
+        formData.append('folder', sigData.folder);
+        formData.append('tags', sigData.tags);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `https://api.cloudinary.com/v1_1/${sigData.cloud_name}/${resourceType}/upload`);
+
+        xhr.upload.onprogress = function(e) {
+            if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 100);
+                progressBar.style.width = percent + '%';
+                progressPercent.innerText = percent + '%';
+                statusText.innerText = `Uploading ${resourceType}... (${percent}%)`;
+            }
+        };
+
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                statusText.innerText = 'Upload successful! Refreshing...';
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                alert('Upload fail ho gaya: ' + xhr.responseText);
+                progressBox.style.display = 'none';
+                statusText.innerText = 'Upload failed';
+            }
+        };
+
+        xhr.onerror = function() {
+            alert('Network error during upload');
+            progressBox.style.display = 'none';
+            statusText.innerText = 'Network error';
+        };
+
+        xhr.send(formData);
+    } catch (err) {
+        alert('Error: ' + err.message);
+        progressBox.style.display = 'none';
+        statusText.innerText = 'Upload cancelled';
+    }
+}
+</script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
