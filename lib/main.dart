@@ -180,47 +180,38 @@ class SafeHomeScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(16.0),
           children: [
-            Container(
-              height: 145,
+                        Container(
+              height: 175,
               width: double.infinity,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(4),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.08),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(4),
                 child: Image.asset(
                   'assets/icons/jamiasamdiya.png',
-                  fit: BoxFit.fitHeight, alignment: Alignment.center,
+                  fit: BoxFit.cover,
                   width: double.infinity,
                   errorBuilder: (context, error, stackTrace) => Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0F5132),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.menu_book, size: 48, color: Colors.white),
-                        SizedBox(height: 8),
-                        Text(
-                          'Jamia Samadiya Portal',
-                          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                      ],
+                    color: const Color(0xFF0F5132),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      'Jamia Samadiya Portal',
+                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+const SizedBox(height: 20),
 
             // 1. Gallery Tile
             _buildCustomTile(
@@ -335,7 +326,7 @@ class SafeHomeScreen extends StatelessWidget {
     );
   }
 
-  static Widget _buildCustomTile({
+    static Widget _buildCustomTile({
     required Color bgColor,
     required Color titleColor,
     required Widget leadingWidget,
@@ -345,11 +336,11 @@ class SafeHomeScreen extends StatelessWidget {
   }) {
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      elevation: 1.8,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      elevation: 2.0,
       color: bgColor,
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.zero,
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
