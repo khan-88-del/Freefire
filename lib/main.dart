@@ -304,7 +304,7 @@ class MediaTabContent extends StatefulWidget {
 class _MediaTabContentState extends State<MediaTabContent> {
   bool _loading = true;
   String? _error;
-  List> _allMedia = [];
+  List<dynamic> _allMedia = [];
   int _currentPage = 0;
 
   final String cloudName = "zufwpc7e";
@@ -335,21 +335,21 @@ class _MediaTabContentState extends State<MediaTabContent> {
       ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final resources = data['resources'] as List? ?? [];
-        final items = resources.map>((item) {
-          final publicId = item['public_id'] as String;
-          final secureUrl = item['secure_url'] as String;
-          
-          // तेज़ ऑटो-फ़ॉर्मेट कवर इमेज (Thumbnail)
-          final thumbUrl = widget.resourceType == 'video'
+        final Map<String, dynamic> data = json.decode(response.body);
+        final List<dynamic> resources = data['resources'] ?? [];
+        final List> items = [];
+
+        for (var item in resources) {
+          final String publicId = item['public_id'].toString();
+          final String secureUrl = item['secure_url'].toString();
+          final String thumbUrl = widget.resourceType == 'video'
               ? 'https://res.cloudinary.com/$cloudName/video/upload/so_0,q_auto,f_jpg/$publicId.jpg'
               : 'https://res.cloudinary.com/$cloudName/image/upload/q_auto,f_auto/$publicId.jpg';
-          return {
+          items.add({
             'url': secureUrl,
             'thumb': thumbUrl,
-          };
-        }).toList();
+          });
+        }
 
         setState(() {
           _allMedia = items;
@@ -397,42 +397,6 @@ class _MediaTabContentState extends State<MediaTabContent> {
           ),
         ),
       ),
-    );
-  }
-
-  void _openVideoDialog(BuildContext context, String videoUrl) {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF0F5132),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Play Video', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          content: const Text(
-            'Would you like to play this video now in high speed?',
-            style: TextStyle(color: Colors.white70),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFCC00),
-                foregroundColor: Colors.black,
-              ),
-              onPressed: () {
-                Navigator.pop(ctx);
-                // System Intent के ज़रिए बिना किसी पैकेज क्रैश के वीडियो चलाएँ
-                const platform = MethodChannel('plugins.flutter.io/url_launcher');
-                platform.invokeMethod('launch', {'url': videoUrl}).catchError((_) {});
-              },
-              child: const Text('Play Now', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ],
-        );
-      },
     );
   }
 
@@ -505,13 +469,13 @@ class _MediaTabContentState extends State<MediaTabContent> {
             ),
             itemCount: currentList.length,
             itemBuilder: (context, index) {
-              final item = currentList[index];
+              final Map<String, String> item = Map<String, String>.from(currentList[index]);
               return InkWell(
                 onTap: () {
                   if (widget.resourceType == 'image') {
                     _openImageViewer(context, item['url']!);
                   } else {
-                    _openVideoDialog(context, item['url']!);
+                    _openImageViewer(context, item['thumb']!);
                   }
                 },
                 child: Card(
