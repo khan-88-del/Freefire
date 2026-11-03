@@ -219,7 +219,20 @@ class SafeHomeScreen extends StatelessWidget {
                   color: const Color(0xFF0F5132).withOpacity(0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.collections, color: Color(0xFF0F5132), size: 26),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(
+                    'assets/icons/gallery_icon.png',
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                    errorBuilder: (ctx, err, st) => const Icon(
+                      Icons.collections,
+                      color: Color(0xFF0F5132),
+                      size: 26,
+                    ),
+                  ),
+                ),
               ),
               title: 'Gallery',
               subtitle: 'View photos and videos',
