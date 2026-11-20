@@ -8,9 +8,9 @@ import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.provider.Settings
 import android.view.Gravity
-import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageView
@@ -42,7 +42,7 @@ class MainActivity : AppCompatActivity() {
         val rv = findViewById<RecyclerView>(R.id.rvSandboxGames)
         rv.layoutManager = GridLayoutManager(this, 4)
         adapter = GameAdapter(sandboxedGames) { game ->
-            checkOverlayAndLaunch(game)
+            checkPermissionsAndLaunch(game)
         }
         rv.adapter = adapter
 
@@ -68,8 +68,6 @@ class MainActivity : AppCompatActivity() {
     private fun loadSandboxedApps() {
         sandboxedGames.clear()
         val addedPkgs = mutableSetOf<String>()
-
-        // 1. Load from BlackBoxCore
         try {
             val installedInBox = BlackBoxCore.get().getInstalledApplications(0, 0)
             for (info in installedInBox) {
@@ -77,20 +75,22 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (_: Exception) {}
 
-        // 2. Merge with SharedPreferences saved packages
         addedPkgs.addAll(getSavedPackages())
 
-        // 3. Resolve Icon & Label from Host PackageManager
         val pm = packageManager
         for (pkg in addedPkgs) {
             try {
                 val appInfo = pm.getApplicationInfo(pkg, 0)
-                val label = appInfo.loadLabel(pm).toString()
-                val icon = appInfo.loadIcon(pm)
-                sandboxedGames.add(GameItem(label, pkg, appInfo.sourceDir, icon))
+                sandboxedGames.add(
+                    GameItem(
+                        appInfo.loadLabel(pm).toString(),
+                        pkg,
+                        appInfo.sourceDir,
+                        appInfo.loadIcon(pm)
+                    )
+                )
             } catch (_: Exception) {}
         }
-
         adapter.notifyDataSetChanged()
     }
 
@@ -108,63 +108,75 @@ class MainActivity : AppCompatActivity() {
             }
             .sortedBy { it.name }
 
-        if (allApps.isEmpty()) {
-            Toast.makeText(this, "No user apps found on device", Toast.LENGTH_SHORT).show()
-            return
-        }
-
         val names = allApps.map { it.name }.toTypedArray()
         AlertDialog.Builder(this)
             .setTitle("Select Game to Add in Sandbox")
             .setItems(names) { _, which ->
                 val selected = allApps[which]
-                Toast.makeText(this, "Adding ${selected.name}...", Toast.LENGTH_SHORT).show()
-
-                // Save immediately so it always shows in Home Grid
                 savePackage(selected.packageName)
                 loadSandboxedApps()
+                Toast.makeText(this, "Cloning ${selected.name} + OBB...", Toast.LENGTH_SHORT).show()
 
                 Thread {
-                    try {
-                        val result = BlackBoxCore.get().installPackageAsUser(File(selected.apkPath), 0)
-                        runOnUiThread {
-                            loadSandboxedApps()
-                            if (result.success) {
-                                Toast.makeText(this, "${selected.name} Ready in Sandbox!", Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(this, "Sandbox note: ${result.msg}", Toast.LENGTH_LONG).show()
-                            }
-                        }
-                    } catch (e: Exception) {
-                        runOnUiThread {
-                            Toast.makeText(this, "Added to list (${e.message})", Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                    installWithObb(selected)
                 }.start()
             }
             .show()
     }
 
-    private fun checkOverlayAndLaunch(game: GameItem) {
+    private fun installWithObb(game: GameItem) {
+        try {
+            // Install by packageName so BlackBox clones base.apk + split_config APKs together
+            BlackBoxCore.get().installPackageAsUser(game.packageName, 0)
+        } catch (_: Exception) {
+            try {
+                BlackBoxCore.get().installPackageAsUser(File(game.apkPath), 0)
+            } catch (_: Exception) {}
+        }
+
+        // Copy OBB folder from host /sdcard/Android/obb/<pkg> into BlackBox virtual storage
+        try {
+            val hostObbDir = File(Environment.getExternalStorageDirectory(), "Android/obb/${game.packageName}")
+            if (hostObbDir.exists() && hostObbDir.isDirectory) {
+                val virtualObbDir = File(filesDir.parentFile, "blackbox/data/user/0/sdcard/Android/obb/${game.packageName}")
+                if (!virtualObbDir.exists()) virtualObbDir.mkdirs()
+
+                hostObbDir.listFiles()?.forEach { obbFile ->
+                    val destFile = File(virtualObbDir, obbFile.name)
+                    if (!destFile.exists() || destFile.length() != obbFile.length()) {
+                        obbFile.copyTo(destFile, overwrite = true)
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun checkPermissionsAndLaunch(game: GameItem) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             Toast.makeText(this, "Grant Display Over Other Apps permission first", Toast.LENGTH_LONG).show()
-            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
-            startActivity(intent)
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
             return
         }
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+            Toast.makeText(this, "Grant All Files Access so Game OBB loads in Sandbox", Toast.LENGTH_LONG).show()
+            try {
+                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName"))
+                startActivity(intent)
+                return
+            } catch (_: Exception) {}
+        }
+
         startService(Intent(this, FloatingMapperService::class.java))
-        Toast.makeText(this, "Launching ${game.name}...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Preparing ${game.name} (OBB & Sandbox)...", Toast.LENGTH_SHORT).show()
 
         Thread {
             try {
-                if (!BlackBoxCore.get().isInstalled(game.packageName, 0)) {
-                    BlackBoxCore.get().installPackageAsUser(File(game.apkPath), 0)
-                }
+                installWithObb(game)
                 BlackBoxCore.get().launchApk(game.packageName, 0)
             } catch (e: Exception) {
                 runOnUiThread {
-                    Toast.makeText(this, "Launch failed: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Launch error: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }.start()
