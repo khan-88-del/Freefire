@@ -8,7 +8,6 @@ import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
 import android.provider.Settings
 import android.view.Gravity
 import android.view.ViewGroup
@@ -42,7 +41,7 @@ class MainActivity : AppCompatActivity() {
         val rv = findViewById<RecyclerView>(R.id.rvSandboxGames)
         rv.layoutManager = GridLayoutManager(this, 4)
         adapter = GameAdapter(sandboxedGames) { game ->
-            checkPermissionsAndLaunch(game)
+            checkOverlayAndLaunch(game)
         }
         rv.adapter = adapter
 
@@ -115,64 +114,41 @@ class MainActivity : AppCompatActivity() {
                 val selected = allApps[which]
                 savePackage(selected.packageName)
                 loadSandboxedApps()
-                Toast.makeText(this, "Cloning ${selected.name} + OBB...", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Cloning ${selected.name} into Sandbox...", Toast.LENGTH_SHORT).show()
 
                 Thread {
-                    installWithObb(selected)
+                    cloneIntoSandbox(selected)
                 }.start()
             }
             .show()
     }
 
-    private fun installWithObb(game: GameItem) {
+    private fun cloneIntoSandbox(game: GameItem) {
         try {
-            // Install by packageName so BlackBox clones base.apk + split_config APKs together
+            // Clones base.apk + all split_config APKs (arm64/armeabi-v7a native libs)
             BlackBoxCore.get().installPackageAsUser(game.packageName, 0)
         } catch (_: Exception) {
             try {
                 BlackBoxCore.get().installPackageAsUser(File(game.apkPath), 0)
             } catch (_: Exception) {}
         }
-
-        // Copy OBB folder from host /sdcard/Android/obb/<pkg> into BlackBox virtual storage
-        try {
-            val hostObbDir = File(Environment.getExternalStorageDirectory(), "Android/obb/${game.packageName}")
-            if (hostObbDir.exists() && hostObbDir.isDirectory) {
-                val virtualObbDir = File(filesDir.parentFile, "blackbox/data/user/0/sdcard/Android/obb/${game.packageName}")
-                if (!virtualObbDir.exists()) virtualObbDir.mkdirs()
-
-                hostObbDir.listFiles()?.forEach { obbFile ->
-                    val destFile = File(virtualObbDir, obbFile.name)
-                    if (!destFile.exists() || destFile.length() != obbFile.length()) {
-                        obbFile.copyTo(destFile, overwrite = true)
-                    }
-                }
-            }
-        } catch (_: Exception) {}
     }
 
-    private fun checkPermissionsAndLaunch(game: GameItem) {
+    private fun checkOverlayAndLaunch(game: GameItem) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             Toast.makeText(this, "Grant Display Over Other Apps permission first", Toast.LENGTH_LONG).show()
             startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
             return
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
-            Toast.makeText(this, "Grant All Files Access so Game OBB loads in Sandbox", Toast.LENGTH_LONG).show()
-            try {
-                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName"))
-                startActivity(intent)
-                return
-            } catch (_: Exception) {}
-        }
-
         startService(Intent(this, FloatingMapperService::class.java))
-        Toast.makeText(this, "Preparing ${game.name} (OBB & Sandbox)...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Launching ${game.name} in Sandbox...", Toast.LENGTH_SHORT).show()
 
         Thread {
             try {
-                installWithObb(game)
+                if (!BlackBoxCore.get().isInstalled(game.packageName, 0)) {
+                    cloneIntoSandbox(game)
+                }
                 BlackBoxCore.get().launchApk(game.packageName, 0)
             } catch (e: Exception) {
                 runOnUiThread {
