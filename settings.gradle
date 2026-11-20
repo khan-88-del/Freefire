@@ -15,6 +15,10 @@ dependencyResolutionManagement {
 }
 rootProject.name = "TVSandboxMapper"
 include ':app'
-if (file('Bcore').exists()) include ':Bcore'
-if (file('black-reflection').exists()) include ':black-reflection'
-if (file('android-mirror').exists()) include ':android-mirror'
+
+// Automatically include all cloned NewBlackbox modules (Bcore, black-reflection, compiler, etc.)
+rootDir.eachDir { dir ->
+    if (dir.name != 'app' && !dir.name.startsWith('.') && new File(dir, 'build.gradle').exists()) {
+        include ":${dir.name}"
+    }
+}
