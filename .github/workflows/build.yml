@@ -12,6 +12,12 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Clone NewBlackbox Bcore Sandbox Engine
+        run: |
+          git clone --depth 1 https://github.com/ALEX5402/NewBlackbox.git temp_nb
+          mv temp_nb/Bcore ./Bcore
+          rm -rf temp_nb
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
