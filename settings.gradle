@@ -14,4 +14,7 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "TVSandboxMapper"
-include ':app', ':Bcore'
+include ':app'
+if (file('Bcore').exists()) include ':Bcore'
+if (file('black-reflection').exists()) include ':black-reflection'
+if (file('android-mirror').exists()) include ':android-mirror'

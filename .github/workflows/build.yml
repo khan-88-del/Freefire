@@ -23,10 +23,11 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;21.4.7075529" "cmake;3.18.1" "platforms;android-33" "build-tools;33.0.2"
 
-      - name: Clone & Configure NewBlackbox Bcore
+      - name: Clone & Configure NewBlackbox Modules
         run: |
           git clone --depth 1 https://github.com/ALEX5402/NewBlackbox.git temp_nb
-          mv temp_nb/Bcore ./Bcore
+          rm -rf temp_nb/app temp_nb/.git temp_nb/.github temp_nb/gradle* temp_nb/settings.gradle temp_nb/build.gradle
+          cp -rn temp_nb/* ./ || true
           rm -rf temp_nb
           echo "ndk.dir=$ANDROID_HOME/ndk/21.4.7075529" >> local.properties
           echo "cmake.dir=$ANDROID_HOME/cmake/3.18.1" >> local.properties
