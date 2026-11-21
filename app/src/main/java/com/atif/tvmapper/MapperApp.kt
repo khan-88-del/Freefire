@@ -12,10 +12,12 @@ import top.niunaijun.blackbox.BlackBoxCore
 import top.niunaijun.blackbox.app.configuration.AppLifecycleCallback
 import top.niunaijun.blackbox.app.configuration.ClientConfiguration
 import java.io.File
+import java.lang.ref.WeakReference
 
 class MapperApp : Application() {
 
     companion object {
+        var currentSandboxedView: WeakReference<View>? = null
         var activeMacroEngine: KeyMacroEngine? = null
 
         fun getConfigFile(context: Context): File {
@@ -32,7 +34,6 @@ class MapperApp : Application() {
                 override fun getHostPackageName(): String = base.packageName
                 override fun isEnableDaemonService(): Boolean = true
                 override fun isHideRoot(): Boolean = true
-                override fun isHideXposed(): Boolean = true
             })
         } catch (e: Exception) {
             e.printStackTrace()
@@ -47,11 +48,14 @@ class MapperApp : Application() {
             e.printStackTrace()
         }
 
-        // Hook inside the Sandboxed Game Process (:p0) to intercept Hardware Keys without Accessibility
         try {
             BlackBoxCore.get().addAppLifecycleCallback(object : AppLifecycleCallback() {
                 override fun onActivityResumed(activity: Activity) {
                     super.onActivityResumed(activity)
+                    val decor = activity.window?.decorView
+                    if (decor != null) {
+                        currentSandboxedView = WeakReference(decor)
+                    }
                     hookWindowCallback(activity)
                 }
             })
@@ -64,7 +68,6 @@ class MapperApp : Application() {
         val window = activity.window ?: return
         val originalCallback = window.callback ?: return
         if (originalCallback is SandboxWindowCallback) return
-
         window.callback = SandboxWindowCallback(activity, originalCallback)
     }
 
@@ -92,8 +95,7 @@ class MapperApp : Application() {
                 if (text.isBlank()) return false
 
                 val root = org.json.JSONObject(text)
-                val isLocked = root.optBoolean("locked", false)
-                if (!isLocked) return false
+                if (!root.optBoolean("locked", false)) return false
 
                 val arr: JSONArray = root.optJSONArray("buttons") ?: return false
                 val matched = mutableListOf<MappedButton>()
