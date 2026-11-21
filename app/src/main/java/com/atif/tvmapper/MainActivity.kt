@@ -8,6 +8,7 @@ import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.provider.Settings
 import android.view.Gravity
 import android.view.ViewGroup
@@ -125,7 +126,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun cloneIntoSandbox(game: GameItem) {
         try {
-            // Clones base.apk + all split_config APKs (arm64/armeabi-v7a native libs)
             BlackBoxCore.get().installPackageAsUser(game.packageName, 0)
         } catch (_: Exception) {
             try {
@@ -141,6 +141,15 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+            Toast.makeText(this, "Grant All Files Access so Guest ID folder works without crash", Toast.LENGTH_LONG).show()
+            try {
+                startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
+                return
+            } catch (_: Exception) {}
+        }
+
+        MapperApp.prepareGuestStorage(this)
         startService(Intent(this, FloatingMapperService::class.java))
         Toast.makeText(this, "Launching ${game.name} in Sandbox...", Toast.LENGTH_SHORT).show()
 

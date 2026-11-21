@@ -296,8 +296,8 @@ class FloatingMapperService : Service() {
                 MotionEvent.ACTION_MOVE -> {
                     params.x = initX + (event.rawX - touchX).toInt()
                     params.y = initY + (event.rawY - touchY).toInt()
-                    data.x = params.x + (sizePx / 2f)
-                    data.y = params.y + (sizePx / 2f)
+                    val loc = IntArray(2); container.getLocationOnScreen(loc); data.x = loc[0] + (sizePx / 2f)
+                    data.y = loc[1] + (sizePx / 2f)
                     data.endX = data.x + 180f
                     data.endY = data.y
                     windowManager.updateViewLayout(container, params)
