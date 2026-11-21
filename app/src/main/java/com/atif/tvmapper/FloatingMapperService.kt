@@ -11,6 +11,8 @@ import android.view.*
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import org.json.JSONArray
+import org.json.JSONObject
 
 class FloatingMapperService : Service() {
 
@@ -38,6 +40,30 @@ class FloatingMapperService : Service() {
         MapperApp.activeMacroEngine = macroEngine
         createFloatingLogo()
         createFloatingMenu()
+        syncConfigToDisk()
+    }
+
+    private fun syncConfigToDisk() {
+        try {
+            val root = JSONObject()
+            root.put("locked", isLocked)
+            val arr = JSONArray()
+            for (node in activeNodes) {
+                val obj = JSONObject()
+                obj.put("orderIndex", node.data.orderIndex)
+                obj.put("type", node.data.type)
+                obj.put("keyCode", node.data.keyCode)
+                obj.put("x", node.data.x.toDouble())
+                obj.put("y", node.data.y.toDouble())
+                obj.put("endX", node.data.endX.toDouble())
+                obj.put("endY", node.data.endY.toDouble())
+                arr.put(obj)
+            }
+            root.put("buttons", arr)
+            val file = MapperApp.getConfigFile(this)
+            file.writeText(root.toString())
+            file.setReadable(true, false)
+        } catch (_: Exception) {}
     }
 
     private fun overlayType(): Int {
@@ -117,6 +143,7 @@ class FloatingMapperService : Service() {
             isLocked = !isLocked
             btnLock.text = if (isLocked) "🔒 Edit" else "🔓 Lock"
             updateNodesLockState()
+            syncConfigToDisk()
         }
 
         menuLayout.addView(btnTap)
@@ -180,9 +207,8 @@ class FloatingMapperService : Service() {
                         (getChildAt(0) as TextView).text = "$type\n[$keyName]"
                         isScanning = false
                         setNodeFocusable(this, false)
+                        syncConfigToDisk()
                         return true
-                    } else if (isLocked) {
-                        if (macroEngine.onHardwareKeyPressed(event.keyCode)) return true
                     }
                 }
                 return super.dispatchKeyEvent(event)
@@ -254,6 +280,7 @@ class FloatingMapperService : Service() {
                 activeNodes.remove(holder)
                 macroEngine.mappedButtons.remove(data)
                 reindexNodes()
+                syncConfigToDisk()
             }
         }
 
@@ -277,6 +304,7 @@ class FloatingMapperService : Service() {
                     true
                 }
                 MotionEvent.ACTION_UP -> {
+                    syncConfigToDisk()
                     if (Math.abs(event.rawX - touchX) < 10 && Math.abs(event.rawY - touchY) < 10) {
                         isScanning = true
                         centerLabel.text = "PRESS KEY"
@@ -290,6 +318,7 @@ class FloatingMapperService : Service() {
         }
 
         windowManager.addView(container, params)
+        syncConfigToDisk()
     }
 
     private fun setNodeFocusable(view: View, focusable: Boolean) {
@@ -308,7 +337,7 @@ class FloatingMapperService : Service() {
             node.closeBtn.visibility = if (isLocked) View.GONE else View.VISIBLE
             node.rootView.alpha = if (isLocked) 0.4f else 1.0f
             node.params.flags = if (isLocked) {
-                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
             } else {
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
             }
