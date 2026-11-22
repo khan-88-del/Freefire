@@ -192,7 +192,7 @@ class FloatingMapperService : Service() {
     private fun addNode(type: String) {
         if (isLocked) return
         val orderNum = activeNodes.size + 1
-        val data = MappedButton(orderIndex = orderNum, type = type, x = 500f, y = 300f)
+        val sizePxInit = (68 * resources.displayMetrics.density).toInt(); val data = MappedButton(orderIndex = orderNum, type = type, x = 500f + sizePxInit / 2f, y = 300f + sizePxInit / 2f)
         macroEngine.mappedButtons.add(data)
 
         val sizePx = (68 * resources.displayMetrics.density).toInt()

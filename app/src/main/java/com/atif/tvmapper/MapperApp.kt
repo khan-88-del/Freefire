@@ -2,6 +2,7 @@ package com.atif.tvmapper
 
 import android.app.Activity
 import android.app.Application
+import android.app.Instrumentation
 import android.content.Context
 import android.os.Environment
 import android.os.Handler
@@ -22,7 +23,6 @@ class MapperApp : Application() {
         var activeMacroEngine: KeyMacroEngine? = null
 
         fun getConfigFile(context: Context): File {
-            // Save config in shared external storage so both host service & sandbox :p0 process read exact same file
             val sharedDir = File(Environment.getExternalStorageDirectory(), "TVSandboxMapper")
             if (!sharedDir.exists()) sharedDir.mkdirs()
             return File(sharedDir, "mapper_nodes.json")
@@ -30,7 +30,6 @@ class MapperApp : Application() {
 
         fun prepareGuestStorage() {
             try {
-                // Keep Garena Guest ID folder directly in /storage/emulated/0/com.garena.msdk (NOT inside Android/data)
                 val msdkDir = File(Environment.getExternalStorageDirectory(), "com.garena.msdk")
                 if (!msdkDir.exists()) msdkDir.mkdirs()
             } catch (_: Exception) {}
@@ -90,6 +89,7 @@ class MapperApp : Application() {
     ) : Window.Callback by baseCallback {
 
         private val handler = Handler(Looper.getMainLooper())
+        private val inst = Instrumentation()
 
         override fun onWindowFocusChanged(hasFocus: Boolean) {
             baseCallback.onWindowFocusChanged(hasFocus)
@@ -138,10 +138,9 @@ class MapperApp : Application() {
                 if (matched.isEmpty()) return false
                 matched.sortBy { it.orderIndex }
 
-                val decor = act.window?.decorView ?: return false
                 matched.forEachIndexed { idx, btn ->
                     handler.postDelayed({
-                        executeTouch(decor, btn)
+                        executeTouch(act, btn)
                     }, idx * 20L)
                 }
                 return true
@@ -150,51 +149,76 @@ class MapperApp : Application() {
             }
         }
 
-        private fun executeTouch(view: View, btn: MappedButton) {
+        private fun executeTouch(act: Activity, btn: MappedButton) {
             when (btn.type) {
-                "TAP" -> dispatchSingleTap(view, btn.x, btn.y)
+                "TAP" -> injectPointerTap(act, btn.x, btn.y)
                 "TAP_10X" -> {
                     for (i in 0 until 10) {
-                        handler.postDelayed({ dispatchSingleTap(view, btn.x, btn.y) }, i * 20L)
+                        handler.postDelayed({ injectPointerTap(act, btn.x, btn.y) }, i * 20L)
                     }
                 }
-                "SWIPE" -> dispatchSwipeGesture(view, btn.x, btn.y, btn.endX, btn.endY)
+                "SWIPE" -> injectPointerSwipe(act, btn.x, btn.y, btn.endX, btn.endY)
             }
         }
 
-        private fun dispatchSingleTap(view: View, x: Float, y: Float) {
+        private fun injectPointerTap(act: Activity, x: Float, y: Float) {
+            // 1. Direct Activity & DecorView dispatch
             val downTime = SystemClock.uptimeMillis()
             val down = MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN, x, y, 0)
-            val up = MotionEvent.obtain(downTime, downTime + 20, MotionEvent.ACTION_UP, x, y, 0)
+            val up = MotionEvent.obtain(downTime, downTime + 18, MotionEvent.ACTION_UP, x, y, 0)
             down.source = InputDevice.SOURCE_TOUCHSCREEN
             up.source = InputDevice.SOURCE_TOUCHSCREEN
-            view.dispatchTouchEvent(down)
-            view.dispatchTouchEvent(up)
+            act.dispatchTouchEvent(down)
+            act.dispatchTouchEvent(up)
             down.recycle()
             up.recycle()
+
+            // 2. Instrumentation pointer sync on background thread for SurfaceView/OpenGL games
+            Thread {
+                try {
+                    val t = SystemClock.uptimeMillis()
+                    val d = MotionEvent.obtain(t, t, MotionEvent.ACTION_DOWN, x, y, 0).apply {
+                        source = InputDevice.SOURCE_TOUCHSCREEN
+                    }
+                    val u = MotionEvent.obtain(t, t + 18, MotionEvent.ACTION_UP, x, y, 0).apply {
+                        source = InputDevice.SOURCE_TOUCHSCREEN
+                    }
+                    inst.sendPointerSync(d)
+                    inst.sendPointerSync(u)
+                    d.recycle()
+                    u.recycle()
+                } catch (_: Exception) {}
+            }.start()
         }
 
-        private fun dispatchSwipeGesture(view: View, x1: Float, y1: Float, x2: Float, y2: Float) {
-            val downTime = SystemClock.uptimeMillis()
-            val down = MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN, x1, y1, 0)
-            down.source = InputDevice.SOURCE_TOUCHSCREEN
-            view.dispatchTouchEvent(down)
-            down.recycle()
+        private fun injectPointerSwipe(act: Activity, x1: Float, y1: Float, x2: Float, y2: Float) {
+            Thread {
+                try {
+                    val t = SystemClock.uptimeMillis()
+                    val d = MotionEvent.obtain(t, t, MotionEvent.ACTION_DOWN, x1, y1, 0).apply {
+                        source = InputDevice.SOURCE_TOUCHSCREEN
+                    }
+                    inst.sendPointerSync(d)
+                    d.recycle()
 
-            for (i in 1..5) {
-                val t = i / 5f
-                val cx = x1 + (x2 - x1) * t
-                val cy = y1 + (y2 - y1) * t
-                val move = MotionEvent.obtain(downTime, downTime + i * 8L, MotionEvent.ACTION_MOVE, cx, cy, 0)
-                move.source = InputDevice.SOURCE_TOUCHSCREEN
-                view.dispatchTouchEvent(move)
-                move.recycle()
-            }
+                    for (i in 1..5) {
+                        val frac = i / 5f
+                        val cx = x1 + (x2 - x1) * frac
+                        val cy = y1 + (y2 - y1) * frac
+                        val m = MotionEvent.obtain(t, t + i * 8L, MotionEvent.ACTION_MOVE, cx, cy, 0).apply {
+                            source = InputDevice.SOURCE_TOUCHSCREEN
+                        }
+                        inst.sendPointerSync(m)
+                        m.recycle()
+                    }
 
-            val up = MotionEvent.obtain(downTime, downTime + 48L, MotionEvent.ACTION_UP, x2, y2, 0)
-            up.source = InputDevice.SOURCE_TOUCHSCREEN
-            view.dispatchTouchEvent(up)
-            up.recycle()
+                    val u = MotionEvent.obtain(t, t + 48L, MotionEvent.ACTION_UP, x2, y2, 0).apply {
+                        source = InputDevice.SOURCE_TOUCHSCREEN
+                    }
+                    inst.sendPointerSync(u)
+                    u.recycle()
+                } catch (_: Exception) {}
+            }.start()
         }
     }
 }
