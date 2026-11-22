@@ -22,22 +22,17 @@ class MapperApp : Application() {
         var activeMacroEngine: KeyMacroEngine? = null
 
         fun getConfigFile(context: Context): File {
-            // Use external files dir or shared app dir accessible across :p0 process
-            val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
-            if (!baseDir.exists()) baseDir.mkdirs()
-            return File(baseDir, "mapper_nodes.json")
+            // Save config in shared external storage so both host service & sandbox :p0 process read exact same file
+            val sharedDir = File(Environment.getExternalStorageDirectory(), "TVSandboxMapper")
+            if (!sharedDir.exists()) sharedDir.mkdirs()
+            return File(sharedDir, "mapper_nodes.json")
         }
 
-        fun prepareGuestStorage(context: Context) {
+        fun prepareGuestStorage() {
             try {
-                // Pre-create Garena Guest MSDK folders on both host & virtual sdcard to prevent EACCES crash
-                val hostSd = Environment.getExternalStorageDirectory()
-                File(hostSd, "com.garena.msdk").mkdirs()
-
-                val virtualSd = File(context.filesDir.parentFile, "blackbox/data/user/0/sdcard")
-                File(virtualSd, "com.garena.msdk").mkdirs()
-                File(virtualSd, "Android/data/com.dts.freefireindia/files").mkdirs()
-                File(virtualSd, "Android/data/com.dts.freefireth/files").mkdirs()
+                // Keep Garena Guest ID folder directly in /storage/emulated/0/com.garena.msdk (NOT inside Android/data)
+                val msdkDir = File(Environment.getExternalStorageDirectory(), "com.garena.msdk")
+                if (!msdkDir.exists()) msdkDir.mkdirs()
             } catch (_: Exception) {}
         }
     }
@@ -57,7 +52,7 @@ class MapperApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        prepareGuestStorage(this)
+        prepareGuestStorage()
 
         try {
             BlackBoxCore.get().doCreate()
@@ -69,7 +64,7 @@ class MapperApp : Application() {
             BlackBoxCore.get().addAppLifecycleCallback(object : AppLifecycleCallback() {
                 override fun onActivityResumed(activity: Activity) {
                     super.onActivityResumed(activity)
-                    prepareGuestStorage(activity)
+                    prepareGuestStorage()
                     val decor = activity.window?.decorView
                     if (decor != null) {
                         currentSandboxedView = WeakReference(decor)
@@ -98,9 +93,7 @@ class MapperApp : Application() {
 
         override fun onWindowFocusChanged(hasFocus: Boolean) {
             baseCallback.onWindowFocusChanged(hasFocus)
-            if (hasFocus) {
-                hookWindowCallback(activity)
-            }
+            if (hasFocus) hookWindowCallback(activity)
         }
 
         override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -145,9 +138,10 @@ class MapperApp : Application() {
                 if (matched.isEmpty()) return false
                 matched.sortBy { it.orderIndex }
 
+                val decor = act.window?.decorView ?: return false
                 matched.forEachIndexed { idx, btn ->
                     handler.postDelayed({
-                        executeOnActivity(act, btn)
+                        executeTouch(decor, btn)
                     }, idx * 20L)
                 }
                 return true
@@ -156,63 +150,50 @@ class MapperApp : Application() {
             }
         }
 
-        private fun executeOnActivity(act: Activity, btn: MappedButton) {
+        private fun executeTouch(view: View, btn: MappedButton) {
             when (btn.type) {
-                "TAP" -> sendTouchToActivity(act, btn.x, btn.y)
+                "TAP" -> dispatchSingleTap(view, btn.x, btn.y)
                 "TAP_10X" -> {
                     for (i in 0 until 10) {
-                        handler.postDelayed({ sendTouchToActivity(act, btn.x, btn.y) }, i * 20L)
+                        handler.postDelayed({ dispatchSingleTap(view, btn.x, btn.y) }, i * 20L)
                     }
                 }
-                "SWIPE" -> sendSwipeToActivity(act, btn.x, btn.y, btn.endX, btn.endY)
+                "SWIPE" -> dispatchSwipeGesture(view, btn.x, btn.y, btn.endX, btn.endY)
             }
         }
 
-        private fun sendTouchToActivity(act: Activity, rawX: Float, rawY: Float) {
-            val decor = act.window?.decorView ?: return
-            val loc = IntArray(2)
-            decor.getLocationOnScreen(loc)
-            val adjX = rawX - loc[0]
-            val adjY = rawY - loc[1]
-
+        private fun dispatchSingleTap(view: View, x: Float, y: Float) {
             val downTime = SystemClock.uptimeMillis()
-            val down = MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN, adjX, adjY, 0)
-            val up = MotionEvent.obtain(downTime, downTime + 18, MotionEvent.ACTION_UP, adjX, adjY, 0)
+            val down = MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN, x, y, 0)
+            val up = MotionEvent.obtain(downTime, downTime + 20, MotionEvent.ACTION_UP, x, y, 0)
             down.source = InputDevice.SOURCE_TOUCHSCREEN
             up.source = InputDevice.SOURCE_TOUCHSCREEN
-
-            act.dispatchTouchEvent(down)
-            act.dispatchTouchEvent(up)
+            view.dispatchTouchEvent(down)
+            view.dispatchTouchEvent(up)
             down.recycle()
             up.recycle()
         }
 
-        private fun sendSwipeToActivity(act: Activity, x1: Float, y1: Float, x2: Float, y2: Float) {
-            val decor = act.window?.decorView ?: return
-            val loc = IntArray(2)
-            decor.getLocationOnScreen(loc)
-            val sx1 = x1 - loc[0]; val sy1 = y1 - loc[1]
-            val sx2 = x2 - loc[0]; val sy2 = y2 - loc[1]
-
+        private fun dispatchSwipeGesture(view: View, x1: Float, y1: Float, x2: Float, y2: Float) {
             val downTime = SystemClock.uptimeMillis()
-            val down = MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN, sx1, sy1, 0)
+            val down = MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN, x1, y1, 0)
             down.source = InputDevice.SOURCE_TOUCHSCREEN
-            act.dispatchTouchEvent(down)
+            view.dispatchTouchEvent(down)
             down.recycle()
 
             for (i in 1..5) {
                 val t = i / 5f
-                val cx = sx1 + (sx2 - sx1) * t
-                val cy = sy1 + (sy2 - sy1) * t
+                val cx = x1 + (x2 - x1) * t
+                val cy = y1 + (y2 - y1) * t
                 val move = MotionEvent.obtain(downTime, downTime + i * 8L, MotionEvent.ACTION_MOVE, cx, cy, 0)
                 move.source = InputDevice.SOURCE_TOUCHSCREEN
-                act.dispatchTouchEvent(move)
+                view.dispatchTouchEvent(move)
                 move.recycle()
             }
 
-            val up = MotionEvent.obtain(downTime, downTime + 48L, MotionEvent.ACTION_UP, sx2, sy2, 0)
+            val up = MotionEvent.obtain(downTime, downTime + 48L, MotionEvent.ACTION_UP, x2, y2, 0)
             up.source = InputDevice.SOURCE_TOUCHSCREEN
-            act.dispatchTouchEvent(up)
+            view.dispatchTouchEvent(up)
             up.recycle()
         }
     }
