@@ -8,6 +8,7 @@ import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.system.Os
 import android.view.*
 import org.json.JSONArray
 import top.niunaijun.blackbox.BlackBoxCore
@@ -22,28 +23,42 @@ class MapperApp : Application() {
         var currentSandboxedView: WeakReference<View>? = null
         var activeMacroEngine: KeyMacroEngine? = null
 
-        fun getConfigFile(context: Context): File {
-            val sharedDir = File(Environment.getExternalStorageDirectory(), "TVSandboxMapper")
-            if (!sharedDir.exists()) sharedDir.mkdirs()
-            return File(sharedDir, "mapper_nodes.json")
+        // Single isolated unified root in Internal Storage: /storage/emulated/0/TVSandbox
+        fun getUnifiedSandboxRoot(): File {
+            val root = File(Environment.getExternalStorageDirectory(), "TVSandbox")
+            if (!root.exists()) root.mkdirs()
+            File(root, "Android/data").mkdirs()
+            File(root, "Android/obb").mkdirs()
+            File(root, "Android/media").mkdirs()
+            File(root, "guest").mkdirs()
+            return root
         }
 
-        fun prepareGuestStorage(context: Context? = null) {
+        fun getConfigFile(context: Context): File {
+            return File(getUnifiedSandboxRoot(), "mapper_nodes.json")
+        }
+
+        fun bindUnifiedStorage(context: Context) {
             try {
-                // 1. Ensure /storage/emulated/0/guest exists on host storage
-                val hostGuestDir = File(Environment.getExternalStorageDirectory(), "guest")
-                if (!hostGuestDir.exists()) hostGuestDir.mkdirs()
+                val unifiedRoot = getUnifiedSandboxRoot()
+                val bbUserDir = File(context.filesDir.parentFile, "blackbox/data/user/0")
+                if (!bbUserDir.exists()) bbUserDir.mkdirs()
 
-                // 2. Sync host /storage/emulated/0/guest/guest100067.dat into BlackBox virtual sdcard/guest
-                if (context != null) {
-                    val virtualGuestDir = File(context.filesDir.parentFile, "blackbox/data/user/0/sdcard/guest")
-                    if (!virtualGuestDir.exists()) virtualGuestDir.mkdirs()
+                val virtualSd = File(bbUserDir, "sdcard")
+                val isLinked = try {
+                    virtualSd.canonicalPath == unifiedRoot.canonicalPath
+                } catch (_: Exception) {
+                    false
+                }
 
-                    hostGuestDir.listFiles()?.forEach { file ->
-                        val dest = File(virtualGuestDir, file.name)
-                        if (!dest.exists() || dest.length() != file.length()) {
-                            file.copyTo(dest, overwrite = true)
-                        }
+                if (!isLinked) {
+                    if (virtualSd.exists()) {
+                        virtualSd.deleteRecursively()
+                    }
+                    try {
+                        Os.symlink(unifiedRoot.absolutePath, virtualSd.absolutePath)
+                    } catch (_: Exception) {
+                        virtualSd.mkdirs()
                     }
                 }
             } catch (_: Exception) {}
@@ -52,6 +67,7 @@ class MapperApp : Application() {
 
     override fun attachBaseContext(base: Context) {
         super.attachBaseContext(base)
+        bindUnifiedStorage(base)
         try {
             BlackBoxCore.get().doAttachBaseContext(base, object : ClientConfiguration() {
                 override fun getHostPackageName(): String = base.packageName
@@ -65,7 +81,7 @@ class MapperApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        prepareGuestStorage(this)
+        bindUnifiedStorage(this)
 
         try {
             BlackBoxCore.get().doCreate()
@@ -77,7 +93,7 @@ class MapperApp : Application() {
             BlackBoxCore.get().addAppLifecycleCallback(object : AppLifecycleCallback() {
                 override fun onActivityResumed(activity: Activity) {
                     super.onActivityResumed(activity)
-                    prepareGuestStorage(activity)
+                    bindUnifiedStorage(activity)
                     val decor = activity.window?.decorView
                     if (decor != null) {
                         currentSandboxedView = WeakReference(decor)
