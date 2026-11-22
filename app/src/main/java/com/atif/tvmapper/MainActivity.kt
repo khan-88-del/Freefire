@@ -149,7 +149,7 @@ class MainActivity : AppCompatActivity() {
             } catch (_: Exception) {}
         }
 
-        MapperApp.prepareGuestStorage()
+        MapperApp.prepareGuestStorage(this)
         startService(Intent(this, FloatingMapperService::class.java))
         Toast.makeText(this, "Launching ${game.name} in Sandbox...", Toast.LENGTH_SHORT).show()
 

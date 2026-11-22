@@ -28,10 +28,24 @@ class MapperApp : Application() {
             return File(sharedDir, "mapper_nodes.json")
         }
 
-        fun prepareGuestStorage() {
+        fun prepareGuestStorage(context: Context? = null) {
             try {
-                val msdkDir = File(Environment.getExternalStorageDirectory(), "com.garena.msdk")
-                if (!msdkDir.exists()) msdkDir.mkdirs()
+                // 1. Ensure /storage/emulated/0/guest exists on host storage
+                val hostGuestDir = File(Environment.getExternalStorageDirectory(), "guest")
+                if (!hostGuestDir.exists()) hostGuestDir.mkdirs()
+
+                // 2. Sync host /storage/emulated/0/guest/guest100067.dat into BlackBox virtual sdcard/guest
+                if (context != null) {
+                    val virtualGuestDir = File(context.filesDir.parentFile, "blackbox/data/user/0/sdcard/guest")
+                    if (!virtualGuestDir.exists()) virtualGuestDir.mkdirs()
+
+                    hostGuestDir.listFiles()?.forEach { file ->
+                        val dest = File(virtualGuestDir, file.name)
+                        if (!dest.exists() || dest.length() != file.length()) {
+                            file.copyTo(dest, overwrite = true)
+                        }
+                    }
+                }
             } catch (_: Exception) {}
         }
     }
@@ -51,7 +65,7 @@ class MapperApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        prepareGuestStorage()
+        prepareGuestStorage(this)
 
         try {
             BlackBoxCore.get().doCreate()
@@ -63,7 +77,7 @@ class MapperApp : Application() {
             BlackBoxCore.get().addAppLifecycleCallback(object : AppLifecycleCallback() {
                 override fun onActivityResumed(activity: Activity) {
                     super.onActivityResumed(activity)
-                    prepareGuestStorage()
+                    prepareGuestStorage(activity)
                     val decor = activity.window?.decorView
                     if (decor != null) {
                         currentSandboxedView = WeakReference(decor)
@@ -162,7 +176,6 @@ class MapperApp : Application() {
         }
 
         private fun injectPointerTap(act: Activity, x: Float, y: Float) {
-            // 1. Direct Activity & DecorView dispatch
             val downTime = SystemClock.uptimeMillis()
             val down = MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN, x, y, 0)
             val up = MotionEvent.obtain(downTime, downTime + 18, MotionEvent.ACTION_UP, x, y, 0)
@@ -173,7 +186,6 @@ class MapperApp : Application() {
             down.recycle()
             up.recycle()
 
-            // 2. Instrumentation pointer sync on background thread for SurfaceView/OpenGL games
             Thread {
                 try {
                     val t = SystemClock.uptimeMillis()
